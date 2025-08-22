@@ -231,12 +231,36 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [readingProgress, setReadingProgress] = useState(0)
   const [showBackToTop, setShowBackToTop] = useState(false)
+  const [allPosts, setAllPosts] = useState<BlogPost[]>(mockPosts)
 
   const t = (key: TranslationKey): string => translations[language][key]
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark")
   }, [theme])
+
+  useEffect(() => {
+    const loadArticles = () => {
+      try {
+        const storedArticles = localStorage.getItem("blogArticles")
+        if (storedArticles) {
+          const articles = JSON.parse(storedArticles)
+          const combinedPosts = [
+            ...articles,
+            ...mockPosts.filter((mock) => !articles.some((stored: BlogPost) => stored.slug === mock.slug)),
+          ]
+          setAllPosts(combinedPosts)
+        } else {
+          setAllPosts(mockPosts)
+        }
+      } catch (error) {
+        console.error("Error loading articles:", error)
+        setAllPosts(mockPosts)
+      }
+    }
+
+    loadArticles()
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -252,7 +276,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const post = mockPosts.find((p) => p.slug === params.slug)
+  const post = allPosts.find((p) => p.slug === params.slug)
 
   if (!post) {
     notFound()
@@ -298,7 +322,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
     })
   }
 
-  const relatedPosts = mockPosts.filter((p) => p.id !== post.id).slice(0, 2)
+  const relatedPosts = allPosts.filter((p) => p.id !== post.id).slice(0, 2)
 
   return (
     <div className="min-h-screen bg-background">

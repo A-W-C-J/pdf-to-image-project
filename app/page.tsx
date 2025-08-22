@@ -22,6 +22,7 @@ interface ConvertedImage {
   dataUrl: string
   pageNumber: number
   type: string
+  fileName?: string // 添加文件名字段用于批量处理
 }
 
 interface OcrResult {
@@ -29,6 +30,25 @@ interface OcrResult {
   text: string
   isExtracting: boolean
   isCompleted: boolean
+  fileName?: string // 添加文件名字段用于批量处理
+}
+
+// 批量处理相关接口
+interface BatchFile {
+  file: File
+  id: string
+  status: 'pending' | 'processing' | 'completed' | 'error'
+  progress: number
+  convertedImages: ConvertedImage[]
+  ocrResults: OcrResult[]
+  error?: string
+}
+
+interface BatchProgress {
+  totalFiles: number
+  completedFiles: number
+  currentFile: string
+  overallProgress: number
 }
 
 // 获取文件扩展名的辅助函数
@@ -131,6 +151,10 @@ export default function PDFConverter() {
   }, [theme])
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [batchFiles, setBatchFiles] = useState<BatchFile[]>([])
+  const [batchProgress, setBatchProgress] = useState<BatchProgress>({ totalFiles: 0, completedFiles: 0, currentFile: '', overallProgress: 0 })
+  const [isBatchMode, setIsBatchMode] = useState(false)
   const [pdfUrl, setPdfUrl] = useState<string>("")
   const [inputSource, setInputSource] = useState<"file" | "url">("file")
   const [pdfPassword, setPdfPassword] = useState<string>("")
@@ -162,6 +186,102 @@ export default function PDFConverter() {
   const [ocrLanguage, setOcrLanguage] = useState<string>("chi_sim+eng")
   const [showOcrResults, setShowOcrResults] = useState<{ [key: number]: boolean }>({})
 
+  // 图像质量检测函数
+  const analyzeImageQuality = (imageData: ImageData) => {
+    const data = imageData.data
+    let totalBrightness = 0
+    let contrastSum = 0
+    const pixels = data.length / 4
+    
+    // 计算平均亮度
+    for (let i = 0; i < data.length; i += 4) {
+      const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3
+      totalBrightness += brightness
+    }
+    const avgBrightness = totalBrightness / pixels
+    
+    // 计算对比度
+    for (let i = 0; i < data.length; i += 4) {
+      const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3
+      contrastSum += Math.pow(brightness - avgBrightness, 2)
+    }
+    const contrast = Math.sqrt(contrastSum / pixels)
+    
+    return {
+      brightness: avgBrightness,
+      contrast: contrast,
+      isLowContrast: contrast < 30,
+      isDark: avgBrightness < 100,
+      isBright: avgBrightness > 200
+    }
+  }
+
+  // 图像预处理函数，提升OCR识别精度
+  const preprocessImageForOCR = async (imageDataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')!
+      const img = new Image()
+      
+      img.onload = () => {
+        canvas.width = img.width
+        canvas.height = img.height
+        
+        // 绘制原始图像
+        ctx.drawImage(img, 0, 0)
+        
+        // 获取图像数据
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const data = imageData.data
+        
+        // 分析图像质量
+        const quality = analyzeImageQuality(imageData)
+        
+        // 根据图像质量自动选择处理策略
+        for (let i = 0; i < data.length; i += 4) {
+          // 转换为灰度
+          const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2])
+          
+          let processed = gray
+          
+          // 根据图像特征选择不同的处理方式
+          if (quality.isLowContrast) {
+            // 低对比度图像：强化对比度
+            processed = Math.min(255, Math.max(0, (gray - 128) * 2.0 + 128))
+          } else if (quality.isDark) {
+            // 暗图像：提升亮度并增强对比度
+            processed = Math.min(255, gray * 1.3 + 30)
+            processed = Math.min(255, Math.max(0, (processed - 128) * 1.2 + 128))
+          } else if (quality.isBright) {
+            // 亮图像：降低亮度并保持对比度
+            processed = Math.max(0, gray * 0.8 - 20)
+            processed = Math.min(255, Math.max(0, (processed - 128) * 1.1 + 128))
+          } else {
+            // 正常图像：轻微增强对比度
+            processed = Math.min(255, Math.max(0, (gray - 128) * 1.2 + 128))
+          }
+          
+          // 自适应二值化
+          const threshold = quality.isDark ? 100 : quality.isBright ? 160 : 128
+          const binary = processed > threshold ? 255 : 0
+          
+          data[i] = binary     // R
+          data[i + 1] = binary // G
+          data[i + 2] = binary // B
+          // data[i + 3] 保持不变 (Alpha)
+        }
+        
+        // 将处理后的数据放回canvas
+        ctx.putImageData(imageData, 0, 0)
+        
+        // 返回处理后的图像数据URL
+        resolve(canvas.toDataURL('image/png'))
+      }
+      
+      img.src = imageDataUrl
+    })
+  }
+
   // OCR文字提取函数
   const extractTextFromImage = async (pageNumber: number, imageDataUrl: string) => {
     try {
@@ -175,8 +295,36 @@ export default function PDFConverter() {
         }
       })
 
+      // 对图像进行预处理以提升识别精度
+      const preprocessedImageUrl = await preprocessImageForOCR(imageDataUrl)
+      
+      // 创建OCR工作器并配置参数
       const worker = await createWorker(ocrLanguage)
-      const { data: { text } } = await worker.recognize(imageDataUrl)
+      
+      // 根据语言和图像特征动态设置OCR参数
+      const ocrParams: { [key: string]: string } = {
+        tessedit_ocr_engine_mode: '1', // 使用LSTM OCR引擎
+        preserve_interword_spaces: '1', // 保留单词间空格
+      }
+      
+      // 根据语言优化参数
+      if (ocrLanguage === 'chi_sim' || ocrLanguage === 'chi_tra') {
+        // 中文优化
+        ocrParams.tessedit_pageseg_mode = '6' // 单一文本块
+        ocrParams.tessedit_char_whitelist = '' // 允许所有中文字符
+      } else if (ocrLanguage === 'eng') {
+        // 英文优化
+        ocrParams.tessedit_pageseg_mode = '1' // 自动页面分割
+        ocrParams.tessedit_char_whitelist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?;:"\'-()[]{}/@#$%^&*+=<>|\\~`'
+      } else {
+        // 自动检测模式
+        ocrParams.tessedit_pageseg_mode = '3' // 完全自动页面分割
+      }
+      
+      // 设置OCR引擎参数
+      await worker.setParameters(ocrParams)
+      
+      const { data: { text } } = await worker.recognize(preprocessedImageUrl)
       await worker.terminate()
 
       // 更新提取结果
@@ -464,22 +612,66 @@ export default function PDFConverter() {
   }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
-    let file: File | undefined | null = null
+    let files: FileList | null = null
     if ("dataTransfer" in event) {
-      file = event.dataTransfer.files?.[0]
+      files = event.dataTransfer.files
     } else {
-      file = event.target.files?.[0]
+      files = event.target.files
     }
 
-    if (file && file.type === "application/pdf") {
-      setSelectedFile(file)
-      setPdfUrl("")
-      setPdfPassword("")
-      setShowPasswordInput(false)
-      setError("")
-      setConvertedImages([])
-      setProgress(0)
-      setStatus("")
+    if (files && files.length > 0) {
+      const pdfFiles = Array.from(files).filter(file => file.type === "application/pdf")
+      
+      if (pdfFiles.length === 0) {
+        setError(t("invalidFileType"))
+        return
+      }
+      
+      if (!isBatchMode) {
+        if (pdfFiles.length === 1) {
+          // 单文件模式 - 处理单个文件
+          setSelectedFile(pdfFiles[0])
+          setPdfUrl("")
+          setError("")
+          setPdfPassword("")
+          setShowPasswordInput(false)
+          setConvertedImages([])
+          setProgress(0)
+          setStatus("")
+        } else {
+          // 单文件模式下选择了多个文件，提示用户
+          setError(language === "zh" ? "单文件模式下只能选择一个PDF文件，请开启批量模式或只选择一个文件" : "Only one PDF file can be selected in single file mode. Please enable batch mode or select only one file")
+          return
+        }
+      } else {
+        // 批量模式 - 追加文件而不是替换
+        const existingFileNames = new Set(selectedFiles.map(f => f.name))
+        const newFiles = pdfFiles.filter(file => !existingFileNames.has(file.name))
+        
+        if (newFiles.length === 0) {
+          setError(language === "zh" ? "所选文件已存在于列表中" : "Selected files already exist in the list")
+          return
+        }
+        
+        const updatedFiles = [...selectedFiles, ...newFiles]
+        setSelectedFiles(updatedFiles)
+        
+        const newBatchFiles: BatchFile[] = newFiles.map(file => ({
+          file,
+          id: `${file.name}-${Date.now()}-${Math.random()}`,
+          status: 'pending' as const,
+          progress: 0,
+          convertedImages: [],
+          ocrResults: [],
+        }))
+        
+        setBatchFiles(prev => [...prev, ...newBatchFiles])
+        setBatchProgress(prev => ({
+          ...prev,
+          totalFiles: updatedFiles.length,
+        }))
+        setError("")
+      }
     } else {
       setError(t("selectValidPdf"))
     }
@@ -518,7 +710,314 @@ export default function PDFConverter() {
     return await response.arrayBuffer()
   }
 
+  // 批量处理PDF文件
+  const processBatchFiles = async () => {
+    if (batchFiles.length === 0) return
+
+    setIsConverting(true)
+    setError("")
+    
+    try {
+      for (let i = 0; i < batchFiles.length; i++) {
+        const batchFile = batchFiles[i]
+        
+        // 更新当前处理的文件
+        setBatchProgress(prev => ({
+          ...prev,
+          currentFile: batchFile.file.name,
+          overallProgress: (i / batchFiles.length) * 100
+        }))
+        
+        // 更新文件状态为处理中
+        setBatchFiles(prev => prev.map(f => 
+          f.id === batchFile.id ? { ...f, status: 'processing' as const } : f
+        ))
+        
+        try {
+          const result = await convertSinglePDF(batchFile.file, batchFile.id)
+          
+          // 更新文件状态为完成
+          setBatchFiles(prev => prev.map(f => 
+            f.id === batchFile.id ? { 
+              ...f, 
+              status: 'completed' as const, 
+              progress: 100,
+              convertedImages: result.images,
+              ocrResults: result.ocrResults || []
+            } : f
+          ))
+          
+          setBatchProgress(prev => ({
+            ...prev,
+            completedFiles: prev.completedFiles + 1
+          }))
+          
+        } catch (error) {
+          // 更新文件状态为错误
+          setBatchFiles(prev => prev.map(f => 
+            f.id === batchFile.id ? { 
+              ...f, 
+              status: 'error' as const, 
+              error: error instanceof Error ? error.message : 'Unknown error'
+            } : f
+          ))
+        }
+      }
+      
+      // 完成所有处理
+      setBatchProgress(prev => ({
+        ...prev,
+        overallProgress: 100,
+        currentFile: ''
+      }))
+      
+      setStatus(language === "zh" ? "批量处理完成" : "Batch processing completed")
+      
+    } catch (error) {
+      setError(`${t("conversionFailed")}: ${error instanceof Error ? error.message : t("unknownError")}`)
+    } finally {
+      setIsConverting(false)
+    }
+  }
+
+  // 重试所有失败的文件
+  const retryAllFailedFiles = async () => {
+    const failedFiles = batchFiles.filter(f => f.status === 'error')
+    if (failedFiles.length === 0 || isConverting) return
+
+    setIsConverting(true)
+    setError("")
+
+    // 重置所有失败文件的状态
+    setBatchFiles(prev => prev.map(f => 
+      f.status === 'error' ? {
+        ...f,
+        status: 'pending' as const,
+        progress: 0,
+        convertedImages: [],
+        ocrResults: [],
+        error: undefined
+      } : f
+    ))
+
+    setStatus(language === "zh" ? `正在重试 ${failedFiles.length} 个失败的文件...` : `Retrying ${failedFiles.length} failed files...`)
+
+    try {
+      // 逐个处理失败的文件
+      for (const failedFile of failedFiles) {
+        try {
+          // 更新文件状态为处理中
+          setBatchFiles(prev => prev.map(f => 
+            f.id === failedFile.id ? { ...f, status: 'processing' as const } : f
+          ))
+
+          // 更新批量进度
+          setBatchProgress(prev => ({
+            ...prev,
+            currentFile: failedFile.file.name
+          }))
+
+          // 转换PDF
+          const result = await convertSinglePDF(failedFile.file, failedFile.id)
+          
+          // 更新文件状态为完成
+          setBatchFiles(prev => prev.map(f => 
+            f.id === failedFile.id ? {
+              ...f,
+              status: 'completed' as const,
+              progress: 100,
+              convertedImages: result.images,
+              ocrResults: result.ocrResults || []
+            } : f
+          ))
+
+        } catch (error) {
+          // 更新文件状态为错误
+          setBatchFiles(prev => prev.map(f => 
+            f.id === failedFile.id ? {
+              ...f,
+              status: 'error' as const,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            } : f
+          ))
+        }
+      }
+
+      // 更新整体进度
+      const completedCount = batchFiles.filter(f => f.status === 'completed').length
+      setBatchProgress(prev => ({
+        ...prev,
+        completedFiles: completedCount,
+        overallProgress: (completedCount / batchFiles.length) * 100,
+        currentFile: ''
+      }))
+
+      const remainingFailedCount = batchFiles.filter(f => f.status === 'error').length
+      if (remainingFailedCount === 0) {
+        setStatus(language === "zh" ? "所有文件重试成功" : "All files retry successful")
+      } else {
+        setStatus(language === "zh" ? `重试完成，仍有 ${remainingFailedCount} 个文件失败` : `Retry completed, ${remainingFailedCount} files still failed`)
+      }
+      
+    } catch (error) {
+      setError(`${t("conversionFailed")}: ${error instanceof Error ? error.message : t("unknownError")}`)
+    } finally {
+      setIsConverting(false)
+      setBatchProgress(prev => ({
+        ...prev,
+        currentFile: ''
+      }))
+    }
+  }
+
+  // 重试批量处理中的单个文件
+  const retryBatchFile = async (fileId: string) => {
+    const fileToRetry = batchFiles.find(f => f.id === fileId)
+    if (!fileToRetry || isConverting) return
+
+    // 重置文件状态
+    setBatchFiles(prev => prev.map(f => 
+      f.id === fileId ? {
+        ...f,
+        status: 'pending' as const,
+        progress: 0,
+        convertedImages: [],
+        ocrResults: [],
+        error: undefined
+      } : f
+    ))
+
+    setIsConverting(true)
+    setError("")
+
+    try {
+      // 更新文件状态为处理中
+      setBatchFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, status: 'processing' as const } : f
+      ))
+
+      // 更新批量进度
+      setBatchProgress(prev => ({
+        ...prev,
+        currentFile: fileToRetry.file.name
+      }))
+
+      // 转换PDF
+      const result = await convertSinglePDF(fileToRetry.file, fileId)
+      
+      // 更新文件状态为完成
+      setBatchFiles(prev => prev.map(f => 
+        f.id === fileId ? {
+          ...f,
+          status: 'completed' as const,
+          progress: 100,
+          convertedImages: result.images,
+          ocrResults: result.ocrResults || []
+        } : f
+      ))
+
+      // 更新整体进度
+      const completedCount = batchFiles.filter(f => f.status === 'completed' || f.id === fileId).length
+      setBatchProgress(prev => ({
+        ...prev,
+        completedFiles: completedCount,
+        overallProgress: (completedCount / batchFiles.length) * 100,
+        currentFile: ''
+      }))
+
+      setStatus(language === "zh" ? `文件 ${fileToRetry.file.name} 重试成功` : `File ${fileToRetry.file.name} retry successful`)
+      
+    } catch (error) {
+      // 更新文件状态为错误
+      setBatchFiles(prev => prev.map(f => 
+        f.id === fileId ? {
+          ...f,
+          status: 'error' as const,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        } : f
+      ))
+      
+      setBatchProgress(prev => ({
+        ...prev,
+        currentFile: ''
+      }))
+      
+      setError(`${t("conversionFailed")}: ${error instanceof Error ? error.message : t("unknownError")}`)
+    } finally {
+      setIsConverting(false)
+    }
+  }
+
+  // 转换单个PDF文件
+  const convertSinglePDF = async (file: File, fileId?: string): Promise<{ images: ConvertedImage[], ocrResults?: OcrResult[] }> => {
+    const pdfjsLib = await import("pdfjs-dist")
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+
+    const arrayBuffer = await file.arrayBuffer()
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+    const pdfDocument = await loadingTask.promise
+    const totalPages = pdfDocument.numPages
+    const images: ConvertedImage[] = []
+
+    for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+      // 更新单个文件的进度
+      if (fileId) {
+        setBatchFiles(prev => prev.map(f => 
+          f.id === fileId ? { ...f, progress: (pageNumber / totalPages) * 100 } : f
+        ))
+      }
+
+      const page = await pdfDocument.getPage(pageNumber)
+      const viewport = page.getViewport({ scale })
+      const canvas = document.createElement("canvas")
+      const context = canvas.getContext("2d")!
+      canvas.height = viewport.height
+      canvas.width = viewport.width
+
+      context.imageSmoothingEnabled = true
+      context.imageSmoothingQuality = 'high'
+
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport,
+      }
+
+      await page.render(renderContext).promise
+
+      if (enableWatermark && watermarkText.trim()) {
+        applyWatermark(canvas, watermarkText, watermarkPosition, watermarkOpacity)
+      }
+
+      let imageDataUrl: string
+      if (format === 'image/jpeg') {
+        imageDataUrl = canvas.toDataURL(format, 1.0)
+      } else if (format === 'image/png' || format === 'image/tiff') {
+        imageDataUrl = canvas.toDataURL(format)
+      } else if (format === 'image/gif') {
+        imageDataUrl = canvas.toDataURL('image/png')
+      } else if (format === 'image/bmp') {
+        imageDataUrl = canvas.toDataURL('image/png')
+      } else {
+        imageDataUrl = canvas.toDataURL(format)
+      }
+
+      images.push({
+        dataUrl: imageDataUrl,
+        pageNumber,
+        type: format,
+        fileName: file.name
+      })
+    }
+
+    return { images }
+  }
+
   const convertPDF = async () => {
+    if (isBatchMode) {
+      await processBatchFiles()
+      return
+    }
+    
     if (!selectedFile && !pdfUrl.trim()) return
 
     setIsConverting(true)
@@ -671,8 +1170,8 @@ export default function PDFConverter() {
     document.body.removeChild(link)
   }
 
-  const downloadAll = async () => {
-    if (convertedImages.length === 0) return
+  const downloadBatchFile = async (batchFile: BatchFile) => {
+    if (batchFile.convertedImages.length === 0) return
 
     setStatus(t("creatingZip"))
 
@@ -680,10 +1179,9 @@ export default function PDFConverter() {
       const JSZip = (await import("jszip")).default
       const zip = new JSZip()
 
-      convertedImages.forEach((image) => {
+      batchFile.convertedImages.forEach((image) => {
         const base64Data = image.dataUrl.split(",")[1]
         const extension = getFileExtension(image.type)
-        // 如果是合并页面（pageNumber为0），使用特殊文件名
         const filename = image.pageNumber === 0 ? `merged-pages.${extension}` : `page_${image.pageNumber}.${extension}`
         zip.file(filename, base64Data, { base64: true })
       })
@@ -693,7 +1191,8 @@ export default function PDFConverter() {
 
       const link = document.createElement("a")
       link.href = downloadUrl
-      link.download = "converted_pdf_images.zip"
+      const fileName = batchFile.file.name.replace(/\.pdf$/i, '')
+      link.download = `${fileName}_converted_images.zip`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -705,8 +1204,90 @@ export default function PDFConverter() {
     }
   }
 
+  const downloadAll = async () => {
+    if (isBatchMode) {
+      // 批量模式：下载所有文件的图片
+      const allImages = batchFiles.flatMap(f => f.convertedImages)
+      if (allImages.length === 0) return
+
+      setStatus(t("creatingZip"))
+
+      try {
+        const JSZip = (await import("jszip")).default
+        const zip = new JSZip()
+
+        // 为每个文件创建单独的文件夹
+        batchFiles.forEach((batchFile) => {
+          if (batchFile.convertedImages.length > 0) {
+            const folderName = batchFile.file.name.replace(/\.pdf$/i, '')
+            const folder = zip.folder(folderName)
+            
+            batchFile.convertedImages.forEach((image) => {
+              const base64Data = image.dataUrl.split(",")[1]
+              const extension = getFileExtension(image.type)
+              const filename = image.pageNumber === 0 ? `merged-pages.${extension}` : `page_${image.pageNumber}.${extension}`
+              folder?.file(filename, base64Data, { base64: true })
+            })
+          }
+        })
+
+        const zipBlob = await zip.generateAsync({ type: "blob" })
+        const downloadUrl = URL.createObjectURL(zipBlob)
+
+        const link = document.createElement("a")
+        link.href = downloadUrl
+        link.download = "batch_converted_pdf_images.zip"
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(downloadUrl)
+
+        setStatus(t("downloadStarted"))
+      } catch (err) {
+        setError(`${t("downloadFailed")}: ${err instanceof Error ? err.message : t("unknownError")}`)
+      }
+    } else {
+      // 单文件模式：下载当前文件的所有图片
+      if (convertedImages.length === 0) return
+
+      setStatus(t("creatingZip"))
+
+      try {
+        const JSZip = (await import("jszip")).default
+        const zip = new JSZip()
+
+        convertedImages.forEach((image) => {
+          const base64Data = image.dataUrl.split(",")[1]
+          const extension = getFileExtension(image.type)
+          // 如果是合并页面（pageNumber为0），使用特殊文件名
+          const filename = image.pageNumber === 0 ? `merged-pages.${extension}` : `page_${image.pageNumber}.${extension}`
+          zip.file(filename, base64Data, { base64: true })
+        })
+
+        const zipBlob = await zip.generateAsync({ type: "blob" })
+        const downloadUrl = URL.createObjectURL(zipBlob)
+
+        const link = document.createElement("a")
+        link.href = downloadUrl
+        link.download = "converted_pdf_images.zip"
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(downloadUrl)
+
+        setStatus(t("downloadStarted"))
+      } catch (err) {
+        setError(`${t("downloadFailed")}: ${err instanceof Error ? err.message : t("unknownError")}`)
+      }
+    }
+  }
+
   const clearAll = () => {
     setSelectedFile(null)
+    setSelectedFiles([])
+    setBatchFiles([])
+    setBatchProgress({ totalFiles: 0, completedFiles: 0, currentFile: '', overallProgress: 0 })
+    setIsBatchMode(false)
     setPdfUrl("")
     setPdfPassword("")
     setShowPasswordInput(false)
@@ -820,29 +1401,68 @@ export default function PDFConverter() {
             <CardDescription>{t("fileUploadDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex space-x-1 rounded-lg bg-muted p-1">
-              <button
-                type="button"
-                onClick={() => setInputSource("file")}
-                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  inputSource === "file"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t("localFile")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputSource("url")}
-                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  inputSource === "url"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t("urlInput")}
-              </button>
+            <div className="space-y-3">
+              <div className="flex space-x-1 rounded-lg bg-muted p-1">
+                <button
+                  type="button"
+                  onClick={() => setInputSource("file")}
+                  className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    inputSource === "file"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t("localFile")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputSource("url")}
+                  className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    inputSource === "url"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t("urlInput")}
+                </button>
+              </div>
+              
+              {inputSource === "file" && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="batch-mode"
+                    checked={isBatchMode}
+                    onCheckedChange={(checked) => {
+                      setIsBatchMode(!!checked)
+                      if (!checked) {
+                        // 切换到单文件模式时清理批量状态
+                        setSelectedFiles([])
+                        setBatchFiles([])
+                        setBatchProgress({ totalFiles: 0, completedFiles: 0, currentFile: '', overallProgress: 0 })
+                      } else {
+                        // 切换到批量模式时清理单文件状态
+                        setSelectedFile(null)
+                        setConvertedImages([])
+                        setOcrResults([])
+                        setShowOcrResults(false)
+                      }
+                      // 清理通用状态
+                      setError("")
+                      setStatus("")
+                      setProgress(0)
+                      setIsConverting(false)
+                      // 重置文件输入元素，允许重新选择相同文件
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = ""
+                      }
+                    }}
+                    disabled={isConverting}
+                  />
+                  <Label htmlFor="batch-mode" className="text-sm font-medium">
+                    {language === "zh" ? "批量处理模式" : "Batch Processing Mode"}
+                  </Label>
+                </div>
+              )}
             </div>
 
             {inputSource === "file" ? (
@@ -867,14 +1487,31 @@ export default function PDFConverter() {
                   id="file-input"
                   type="file"
                   accept="application/pdf"
+                  multiple={isBatchMode}
                   onChange={handleFileSelect}
                   disabled={isConverting}
                   className="sr-only"
                 />
-                {selectedFile && (
+                {!isBatchMode && selectedFile && (
                   <p className="text-sm text-muted-foreground">
                     {t("selected")}: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
                   </p>
+                )}
+                
+                {isBatchMode && selectedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">
+                      {language === "zh" ? `已选择 ${selectedFiles.length} 个文件` : `${selectedFiles.length} files selected`}
+                    </p>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
+                          <span className="truncate flex-1">{file.name}</span>
+                          <span className="ml-2 whitespace-nowrap">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (
@@ -1045,7 +1682,11 @@ export default function PDFConverter() {
             <div className="flex gap-2">
               <Button
                 onClick={convertPDF}
-                disabled={(!selectedFile && !pdfUrl.trim()) || isConverting}
+                disabled={(
+                  isBatchMode 
+                    ? selectedFiles.length === 0 
+                    : (!selectedFile && !pdfUrl.trim())
+                ) || isConverting}
                 className="flex-1"
               >
                 {isConverting ? t("converting") : t("startConvert")}
@@ -1059,7 +1700,7 @@ export default function PDFConverter() {
           </CardContent>
         </Card>
 
-        {(status || error) && (
+        {(status || error || (isBatchMode && batchProgress.totalFiles > 0)) && (
           <Card>
             <CardContent className="pt-6">
               {error && (
@@ -1067,23 +1708,100 @@ export default function PDFConverter() {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              {status && !error && (
+              {status && !error && !isBatchMode && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">{status}</p>
                   {isConverting && <Progress value={progress} className="w-full" />}
+                </div>
+              )}
+              {isBatchMode && batchProgress.totalFiles > 0 && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium">批量处理进度</span>
+                      <div className="flex items-center gap-2">
+                        <span>{batchProgress.completedFiles}/{batchProgress.totalFiles} 文件</span>
+                        {batchFiles.some(f => f.status === 'error') && !isConverting && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={retryAllFailedFiles}
+                            className="h-6 px-2 text-xs"
+                          >
+                            重试失败
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <Progress value={batchProgress.overallProgress} className="w-full" />
+                  </div>
+                  {batchProgress.currentFile && (
+                    <p className="text-sm text-muted-foreground">
+                      正在处理: {batchProgress.currentFile}
+                    </p>
+                  )}
+                  <div className="space-y-2">
+                    {batchFiles.map((batchFile) => (
+                      <div key={batchFile.id} className="flex items-center justify-between p-2 border rounded">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{batchFile.file.name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Progress value={batchFile.progress} className="flex-1 h-2" />
+                            <span className="text-xs text-muted-foreground">{Math.round(batchFile.progress)}%</span>
+                          </div>
+                        </div>
+                        <div className="ml-2 flex items-center gap-2">
+                          {batchFile.status === 'pending' && (
+                            <span className="text-xs text-gray-500">等待中</span>
+                          )}
+                          {batchFile.status === 'processing' && (
+                            <span className="text-xs text-blue-500">处理中</span>
+                          )}
+                          {batchFile.status === 'completed' && (
+                            <span className="text-xs text-green-500">已完成</span>
+                          )}
+                          {batchFile.status === 'error' && (
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-red-500" title={batchFile.error}>错误</span>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => retryBatchFile(batchFile.id)}
+                                  className="h-6 px-2 text-xs"
+                                  disabled={isConverting}
+                                >
+                                  重试
+                                </Button>
+                              </div>
+                              {batchFile.error && (
+                                <div className="text-xs text-red-400 max-w-48 text-right truncate" title={batchFile.error}>
+                                  {batchFile.error}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        {convertedImages.length > 0 && (
+        {(convertedImages.length > 0 || (isBatchMode && batchFiles.some(f => f.convertedImages.length > 0))) && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <FileImage className="h-5 w-5" />
-                  {t("convertResult")} ({convertedImages.length} {t("images")})
+                  {isBatchMode ? (
+                    `批量转换结果 (${batchFiles.reduce((total, f) => total + f.convertedImages.length, 0)} 张图片)`
+                  ) : (
+                    `${t("convertResult")} (${convertedImages.length} ${t("images")})`
+                  )}
                 </span>
                 <Button onClick={downloadAll} className="flex items-center gap-2">
                   <Download className="h-4 w-4" />
@@ -1092,8 +1810,119 @@ export default function PDFConverter() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {convertedImages.map((image) => {
+              {isBatchMode ? (
+                <div className="space-y-6">
+                  {batchFiles.filter(f => f.convertedImages.length > 0).map((batchFile) => (
+                    <div key={batchFile.id} className="space-y-4">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <h3 className="font-medium text-lg">{batchFile.file.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            {batchFile.convertedImages.length} 张图片
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => downloadBatchFile(batchFile)}
+                            className="flex items-center gap-1"
+                          >
+                            <Download className="h-3 w-3" />
+                            下载
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {batchFile.convertedImages.map((image) => {
+                          const ocrResult = batchFile.ocrResults.find(r => r.pageNumber === image.pageNumber)
+                          const isShowingOcr = showOcrResults[`${batchFile.id}-${image.pageNumber}`]
+                          
+                          return (
+                            <div key={`${batchFile.id}-${image.pageNumber}`} className="space-y-2">
+                              <div className="relative group">
+                                <img
+                                  src={image.dataUrl || "/placeholder.svg"}
+                                  alt={`${batchFile.file.name} - 第 ${image.pageNumber} 页`}
+                                  className="w-full h-auto border rounded-lg shadow-sm"
+                                />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                                  <Button size="sm" onClick={() => downloadSingle(image)} className="flex items-center gap-1">
+                                    <Download className="h-3 w-3" />
+                                    下载
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant={ocrResult?.isExtracting ? "default" : ocrResult?.isCompleted && ocrResult?.text ? "outline" : "secondary"}
+                                    onClick={() => extractTextFromImage(image.pageNumber, image.dataUrl, batchFile.id)}
+                                    disabled={ocrResult?.isExtracting}
+                                    className={`flex items-center gap-1 ${
+                                      ocrResult?.isExtracting ? 'bg-blue-600 hover:bg-blue-700' : 
+                                      ocrResult?.isCompleted && ocrResult?.text ? 'border-green-500 text-green-600 hover:bg-green-50' : ''
+                                    }`}
+                                  >
+                                    {ocrResult?.isExtracting ? (
+                                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                                    ) : ocrResult?.isCompleted && ocrResult?.text ? (
+                                      <div className="h-3 w-3 rounded-full bg-green-500 flex items-center justify-center">
+                                        <div className="h-1.5 w-1.5 bg-white rounded-full"></div>
+                                      </div>
+                                    ) : (
+                                      <FileText className="h-3 w-3" />
+                                    )}
+                                    {ocrResult?.isExtracting ? "识别中" : 
+                                     ocrResult?.isCompleted && ocrResult?.text ? "已识别" : 
+                                     "识别文字"}
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <p className="text-sm text-center text-muted-foreground">
+                                  第 {image.pageNumber} 页
+                                </p>
+                                
+                                {/* OCR结果显示 */}
+                                {ocrResult && ocrResult.isCompleted && ocrResult.text && (
+                                  <div className="space-y-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => toggleOcrResult(`${batchFile.id}-${image.pageNumber}`)}
+                                      className="w-full flex items-center gap-2"
+                                    >
+                                      <FileText className="h-4 w-4" />
+                                      {isShowingOcr ? "隐藏文字" : "显示文字"}
+                                    </Button>
+                                    {isShowingOcr && (
+                                      <div className="bg-gray-50 dark:bg-gray-900 border rounded-lg p-3 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">识别结果</span>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => copyToClipboard(ocrResult.text)}
+                                            className="h-6 px-2"
+                                          >
+                                            <Copy className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                        <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                                          {ocrResult.text}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {convertedImages.map((image) => {
                   const ocrResult = ocrResults.find(r => r.pageNumber === image.pageNumber)
                   const isShowingOcr = showOcrResults[image.pageNumber]
                   
@@ -1169,36 +1998,23 @@ export default function PDFConverter() {
                             </Button>
                             
                             {isShowingOcr && ocrResult.text && (
-                              <div className="border rounded-lg p-3 bg-muted/50 space-y-2">
-                                <div className="text-sm text-muted-foreground max-h-128 overflow-y-auto whitespace-pre-wrap border rounded p-2 bg-background">
-                                  {ocrResult.text}
-                                </div>
-                                <div className="flex gap-2">
+                              <div className="bg-gray-50 dark:bg-gray-900 border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {language === "zh" ? "识别结果" : "OCR Result"}
+                                  </span>
                                   <Button
+                                    variant="ghost"
                                     size="sm"
-                                    variant="outline"
-                                    onClick={() => copyTextToClipboard(ocrResult.text)}
-                                    className="flex items-center gap-1"
+                                    onClick={() => copyToClipboard(ocrResult.text)}
+                                    className="h-6 px-2"
                                   >
                                     <Copy className="h-3 w-3" />
-                                    {t("copyText")}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => downloadTextFile(ocrResult.text, image.pageNumber)}
-                                    className="flex items-center gap-1"
-                                  >
-                                    <Download className="h-3 w-3" />
-                                    {t("downloadText")}
                                   </Button>
                                 </div>
-                              </div>
-                            )}
-                            
-                            {isShowingOcr && !ocrResult.text && !ocrResult.isExtracting && (
-                              <div className="text-sm text-muted-foreground text-center py-2">
-                                {t("noTextFound")}
+                                <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                                  {ocrResult.text}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1208,6 +2024,7 @@ export default function PDFConverter() {
                   )
                 })}
               </div>
+            )}
             </CardContent>
           </Card>
         )}

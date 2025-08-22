@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Download, FileImage, Upload, X } from "lucide-react"
+import { Download, FileImage, Upload, X, BookOpen, Github } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
@@ -338,6 +339,15 @@ export default function PDFConverter() {
         <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
       </div>
 
+      <div className="fixed top-4 left-4 z-10">
+        <Link href="/blog">
+          <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
+            <BookOpen className="h-4 w-4" />
+            {language === "zh" ? "技术博客" : "Tech Blog"}
+          </Button>
+        </Link>
+      </div>
+
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center space-y-2 pt-16 sm:pt-8">
           <h1 className="text-3xl font-bold">{t("title")}</h1>
@@ -612,6 +622,58 @@ export default function PDFConverter() {
             </CardContent>
           </Card>
         )}
+
+        <footer className="mt-12 pt-8 border-t border-border">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-muted-foreground">
+                {language === "zh" ? "© 2024 PDF转图片工具" : "© 2024 PDF to Image Converter"}
+              </p>
+              <a
+                href="https://github.com/A-W-C-J/pdf-to-image-project"
+                target="_blank"
+                rel="nofollow noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Github className="h-4 w-4" />
+                {language === "zh" ? "开源项目" : "Open Source"}
+              </a>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {language === "zh" ? "基于 PDF.js 构建的在线工具" : "Built with PDF.js"}
+            </div>
+          </div>
+        </footer>
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: language === "zh" ? "PDF转图片工具" : "PDF to Image Converter",
+              description:
+                language === "zh"
+                  ? "免费在线PDF转图片工具，支持批量转换、水印添加、多种格式输出"
+                  : "Free online PDF to image converter with batch conversion, watermark support, and multiple format output",
+              url: "https://www.pdf2img.top",
+              applicationCategory: "UtilityApplication",
+              operatingSystem: "Web Browser",
+              offers: {
+                "@type": "Offer",
+                price: "0",
+                priceCurrency: "USD",
+              },
+              codeRepository: "https://github.com/A-W-C-J/pdf-to-image-project",
+              programmingLanguage: ["TypeScript", "JavaScript"],
+              runtimePlatform: "Web Browser",
+              author: {
+                "@type": "Organization",
+                name: "PDF2IMG.TOP",
+              },
+            }),
+          }}
+        />
       </div>
     </div>
   )

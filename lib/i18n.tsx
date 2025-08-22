@@ -2,23 +2,38 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react"
 
+export type Language = "zh" | "en"
+
 export const translations = {
   zh: {
     title: "PDF转图片工具",
-    subtitle: "支持批量转换和下载",
-    privacy: "纯前端转换，无服务器，保护您的隐私",
-    fileUpload: "文件上传与设置",
-    fileUploadDesc: "选择或拖放PDF文件并配置转换参数",
-    dragDrop: "拖放文件到此处，或点击选择文件",
+    subtitle: "将PDF文档转换为高质量图片",
+    privacy: "所有处理都在您的浏览器中进行，文件不会上传到服务器",
+    fileUpload: "文件上传",
+    fileUploadDesc: "选择PDF文件或输入URL进行转换",
+    localFile: "本地文件",
+    urlInput: "URL输入",
+    dragDrop: "拖拽文件到此处或点击选择",
     selected: "已选择",
-    scale: "缩放比例 (越大越清晰)",
-    scaleDesc: "1.0 = 72DPI, 2.0 = 144DPI, 3.0 = 216DPI",
+    pdfUrl: "PDF链接",
+    pdfUrlPlaceholder: "输入PDF文件的URL地址",
+    pdfUrlDesc: "支持公开访问的PDF文件链接",
+    urlReady: "URL已准备",
+    fetchingPdf: "正在获取PDF文件...",
+    invalidPdfUrl: "无效的PDF链接",
+    pdfPassword: "PDF密码",
+    pdfPasswordPlaceholder: "输入PDF文件密码",
+    pdfPasswordDesc: "如果PDF文件受密码保护，请输入密码",
+    passwordRequired: "此PDF文件需要密码",
+    incorrectPassword: "密码错误，请重新输入",
+    scale: "缩放比例",
+    scaleDesc: "数值越大，图片质量越高，文件也越大",
     outputFormat: "输出格式",
-    pngFormat: "PNG (无损)",
-    jpegFormat: "JPEG (压缩)",
+    pngFormat: "PNG (无损压缩)",
+    jpegFormat: "JPEG (有损压缩)",
     addWatermark: "添加水印",
     watermarkText: "水印文字",
-    watermarkTextPlaceholder: "输入水印文字",
+    watermarkTextPlaceholder: "输入水印内容",
     watermarkPosition: "水印位置",
     center: "居中",
     topLeft: "左上角",
@@ -28,56 +43,55 @@ export const translations = {
     opacity: "透明度",
     startConvert: "开始转换",
     converting: "转换中...",
-    convertResult: "转换结果",
-    images: "张图片",
-    downloadAll: "下载全部 (ZIP)",
-    download: "下载",
-    page: "第",
-    pageUnit: "页",
-    selectValidPdf: "请选择有效的PDF文件",
-    loadingPdfjs: "正在加载PDF.js...",
+    loadingPdfjs: "正在加载PDF.js库...",
     readingPdf: "正在读取PDF文件...",
     parsingPdf: "正在解析PDF文档...",
     totalPages: "共",
-    startConverting: "页，开始转换...",
+    startConverting: "页，开始转换",
     convertingPage: "正在转换第",
+    pageUnit: "页",
     convertComplete: "转换完成！共生成",
+    images: "张图片",
     convertFailed: "转换失败",
     unknownError: "未知错误",
-    creatingZip: "正在创建ZIP包...",
-    downloadStarted: "下载已开始！",
+    selectValidPdf: "请选择有效的PDF文件",
+    convertResult: "转换结果",
+    downloadAll: "下载全部",
+    download: "下载",
+    page: "第",
+    creatingZip: "正在创建ZIP文件...",
+    downloadStarted: "下载已开始",
     downloadFailed: "下载失败",
-    lightTheme: "浅色主题",
-    darkTheme: "深色主题",
-    toggleTheme: "切换主题",
-    metaTitle: "PDF转图片工具 - 免费在线PDF转换器",
-    metaDescription:
-      "免费的PDF转图片在线工具，支持批量转换PDF为PNG/JPEG格式，纯前端处理保护隐私，支持水印添加和自定义缩放比例。",
-    keywords: "PDF转图片,PDF转换器,PDF to PNG,PDF to JPEG,在线转换,批量转换,免费工具,隐私保护",
-    ogTitle: "PDF转图片工具 - 安全快速的在线转换器",
-    ogDescription: "专业的PDF转图片工具，支持批量转换、水印添加、多种格式输出。纯前端处理，保护您的文件隐私。",
-    twitterTitle: "PDF转图片工具 - 免费在线转换",
-    twitterDescription: "快速将PDF转换为高质量图片，支持PNG/JPEG格式，批量处理，隐私安全。",
-    structuredDataName: "PDF转图片转换器",
-    structuredDataDescription: "免费的在线PDF转图片工具，支持批量转换PDF文档为PNG或JPEG格式的图片文件。",
-    canonicalUrl: "https://pdf-converter.vercel.app/zh",
   },
   en: {
     title: "PDF to Image Converter",
-    subtitle: "Batch conversion and download support",
-    privacy: "Pure frontend conversion, no server, protect your privacy",
-    fileUpload: "File Upload & Settings",
-    fileUploadDesc: "Select or drag and drop PDF files and configure conversion parameters",
-    dragDrop: "Drag and drop files here, or click to select files",
+    subtitle: "Convert PDF documents to high-quality images",
+    privacy: "All processing is done in your browser, files are not uploaded to servers",
+    fileUpload: "File Upload",
+    fileUploadDesc: "Select PDF file or enter URL for conversion",
+    localFile: "Local File",
+    urlInput: "URL Input",
+    dragDrop: "Drag and drop file here or click to select",
     selected: "Selected",
-    scale: "Scale (higher = clearer)",
-    scaleDesc: "1.0 = 72DPI, 2.0 = 144DPI, 3.0 = 216DPI",
+    pdfUrl: "PDF URL",
+    pdfUrlPlaceholder: "Enter PDF file URL",
+    pdfUrlDesc: "Supports publicly accessible PDF file links",
+    urlReady: "URL Ready",
+    fetchingPdf: "Fetching PDF file...",
+    invalidPdfUrl: "Invalid PDF URL",
+    pdfPassword: "PDF Password",
+    pdfPasswordPlaceholder: "Enter PDF file password",
+    pdfPasswordDesc: "If the PDF file is password protected, please enter the password",
+    passwordRequired: "This PDF file requires a password",
+    incorrectPassword: "Incorrect password, please try again",
+    scale: "Scale",
+    scaleDesc: "Higher values produce better quality but larger files",
     outputFormat: "Output Format",
     pngFormat: "PNG (Lossless)",
-    jpegFormat: "JPEG (Compressed)",
+    jpegFormat: "JPEG (Lossy)",
     addWatermark: "Add Watermark",
     watermarkText: "Watermark Text",
-    watermarkTextPlaceholder: "Enter watermark text",
+    watermarkTextPlaceholder: "Enter watermark content",
     watermarkPosition: "Watermark Position",
     center: "Center",
     topLeft: "Top Left",
@@ -85,102 +99,83 @@ export const translations = {
     bottomLeft: "Bottom Left",
     bottomRight: "Bottom Right",
     opacity: "Opacity",
-    startConvert: "Start Conversion",
+    startConvert: "Start Convert",
     converting: "Converting...",
-    convertResult: "Conversion Results",
-    images: "images",
-    downloadAll: "Download All (ZIP)",
-    download: "Download",
-    page: "Page",
-    pageUnit: "",
-    selectValidPdf: "Please select a valid PDF file",
-    loadingPdfjs: "Loading PDF.js...",
+    loadingPdfjs: "Loading PDF.js library...",
     readingPdf: "Reading PDF file...",
     parsingPdf: "Parsing PDF document...",
     totalPages: "Total",
-    startConverting: "pages, starting conversion...",
+    startConverting: "pages, starting conversion",
     convertingPage: "Converting page",
+    pageUnit: "",
     convertComplete: "Conversion complete! Generated",
+    images: "images",
     convertFailed: "Conversion failed",
     unknownError: "Unknown error",
-    creatingZip: "Creating ZIP package...",
-    downloadStarted: "Download started!",
+    selectValidPdf: "Please select a valid PDF file",
+    convertResult: "Conversion Result",
+    downloadAll: "Download All",
+    download: "Download",
+    page: "Page",
+    creatingZip: "Creating ZIP file...",
+    downloadStarted: "Download started",
     downloadFailed: "Download failed",
-    lightTheme: "Light Theme",
-    darkTheme: "Dark Theme",
-    toggleTheme: "Toggle Theme",
-    metaTitle: "PDF to Image Converter - Free Online PDF Converter Tool",
-    metaDescription:
-      "Free online PDF to image converter tool. Batch convert PDF to PNG/JPEG format with frontend processing for privacy protection, watermark support and custom scaling.",
-    keywords:
-      "PDF to image,PDF converter,PDF to PNG,PDF to JPEG,online converter,batch conversion,free tool,privacy protection",
-    ogTitle: "PDF to Image Converter - Secure & Fast Online Tool",
-    ogDescription:
-      "Professional PDF to image converter with batch conversion, watermark addition, and multiple format output. Frontend processing protects your file privacy.",
-    twitterTitle: "PDF to Image Converter - Free Online Tool",
-    twitterDescription:
-      "Quickly convert PDF to high-quality images, supports PNG/JPEG formats, batch processing, privacy secure.",
-    structuredDataName: "PDF to Image Converter",
-    structuredDataDescription:
-      "Free online PDF to image converter tool that supports batch conversion of PDF documents to PNG or JPEG image files.",
-    canonicalUrl: "https://pdf-converter.vercel.app/en",
   },
-}
+} as const
 
-export type Language = keyof typeof translations
 export type TranslationKey = keyof typeof translations.zh
 
-export const seoTranslations = {
-  zh: {
-    metaTitle: translations.zh.metaTitle,
-    metaDescription: translations.zh.metaDescription,
-    keywords: translations.zh.keywords,
-    ogTitle: translations.zh.ogTitle,
-    ogDescription: translations.zh.ogDescription,
-    twitterTitle: translations.zh.twitterTitle,
-    twitterDescription: translations.zh.twitterDescription,
-    structuredDataName: translations.zh.structuredDataName,
-    structuredDataDescription: translations.zh.structuredDataDescription,
-    canonicalUrl: translations.zh.canonicalUrl,
-  },
-  en: {
-    metaTitle: translations.en.metaTitle,
-    metaDescription: translations.en.metaDescription,
-    keywords: translations.en.keywords,
-    ogTitle: translations.en.ogTitle,
-    ogDescription: translations.en.ogDescription,
-    twitterTitle: translations.en.twitterTitle,
-    twitterDescription: translations.en.twitterDescription,
-    structuredDataName: translations.en.structuredDataName,
-    structuredDataDescription: translations.en.structuredDataDescription,
-    canonicalUrl: translations.en.canonicalUrl,
-  },
+// Language Context
+interface LanguageContextType {
+  language: Language
+  setLanguage: (language: Language) => void
+  t: (key: TranslationKey) => string
 }
 
-const LanguageContext = createContext<{
-  language: Language
-  setLanguage: (lang: Language) => void
-  t: (key: TranslationKey) => string
-}>({
-  language: "zh",
-  setLanguage: () => {},
-  t: () => "",
-})
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>("zh")
 
-  const t = (key: TranslationKey): string => {
-    return translations[language][key] || key
-  }
+  const t = (key: TranslationKey): string => translations[language][key]
 
   return <LanguageContext.Provider value={{ language, setLanguage, t }}>{children}</LanguageContext.Provider>
 }
 
 export function useLanguage() {
   const context = useContext(LanguageContext)
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useLanguage must be used within a LanguageProvider")
   }
   return context
+}
+
+// SEO Translations
+export const seoTranslations = {
+  zh: {
+    title: "PDF转图片工具 - 免费在线PDF转换器",
+    description: "免费的在线PDF转图片工具，支持转换为PNG/JPEG格式，高质量输出，隐私安全，无需上传文件",
+    keywords: "PDF转图片,PDF转换器,PDF to PNG,PDF to JPEG,在线转换,免费工具",
+    ogTitle: "PDF转图片工具 - 免费在线转换",
+    ogDescription: "将PDF文档转换为高质量图片，支持PNG/JPEG格式，完全在浏览器中处理，保护您的隐私",
+    twitterTitle: "PDF转图片工具",
+    twitterDescription: "免费的在线PDF转图片转换器，高质量输出，隐私安全",
+    structuredDataName: "PDF转图片工具",
+    structuredDataDescription: "免费的在线PDF转图片转换工具，支持多种格式输出",
+    canonicalUrl: "https://pdf-converter.example.com",
+  },
+  en: {
+    title: "PDF to Image Converter - Free Online PDF Converter",
+    description:
+      "Free online PDF to image converter, supports PNG/JPEG formats, high-quality output, privacy-safe, no file upload required",
+    keywords: "PDF to image,PDF converter,PDF to PNG,PDF to JPEG,online converter,free tool",
+    ogTitle: "PDF to Image Converter - Free Online Tool",
+    ogDescription:
+      "Convert PDF documents to high-quality images, supports PNG/JPEG formats, processed entirely in browser for privacy",
+    twitterTitle: "PDF to Image Converter",
+    twitterDescription: "Free online PDF to image converter with high-quality output and privacy protection",
+    structuredDataName: "PDF to Image Converter",
+    structuredDataDescription: "Free online PDF to image conversion tool with multiple format support",
+    canonicalUrl: "https://pdf-converter.example.com/en",
+  },
 }

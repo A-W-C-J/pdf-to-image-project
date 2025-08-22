@@ -32,8 +32,12 @@ export default function PDFConverter() {
   }, [theme])
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [scale, setScale] = useState(3.0)
-  const [format, setFormat] = useState("image/png")
+  const [pdfUrl, setPdfUrl] = useState<string>("")
+  const [inputSource, setInputSource] = useState<"file" | "url">("file")
+  const [pdfPassword, setPdfPassword] = useState<string>("")
+  const [showPasswordInput, setShowPasswordInput] = useState(false)
+  const [scale, setScale] = useState<number>(3.0)
+  const [format, setFormat] = useState<string>("image/png")
   const [isConverting, setIsConverting] = useState(false)
   const [convertedImages, setConvertedImages] = useState<ConvertedImage[]>([])
   const [progress, setProgress] = useState(0)
@@ -43,9 +47,9 @@ export default function PDFConverter() {
   const [isDragging, setIsDragging] = useState(false)
 
   const [enableWatermark, setEnableWatermark] = useState(false)
-  const [watermarkText, setWatermarkText] = useState("WATERMARK")
-  const [watermarkPosition, setWatermarkPosition] = useState("center")
-  const [watermarkOpacity, setWatermarkOpacity] = useState(0.3)
+  const [watermarkText, setWatermarkText] = useState<string>("WATERMARK")
+  const [watermarkPosition, setWatermarkPosition] = useState<string>("center")
+  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(0.3)
 
   const applyWatermark = (canvas: HTMLCanvasElement, text: string, position: string, opacity: number) => {
     const context = canvas.getContext("2d")!
@@ -104,6 +108,9 @@ export default function PDFConverter() {
 
     if (file && file.type === "application/pdf") {
       setSelectedFile(file)
+      setPdfUrl("")
+      setPdfPassword("")
+      setShowPasswordInput(false)
       setError("")
       setConvertedImages([])
       setProgress(0)
@@ -114,31 +121,40 @@ export default function PDFConverter() {
     setIsDragging(false)
   }
 
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
+  const handleUrlChange = (url: string) => {
+    setPdfUrl(url ?? "")
+    if (url && url.trim()) {
+      setSelectedFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+    setPdfPassword("")
+    setShowPasswordInput(false)
+    setError("")
+    setConvertedImages([])
+    setProgress(0)
+    setStatus("")
   }
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-  }
+  const fetchPdfFromUrl = async (url: string): Promise<ArrayBuffer> => {
+    setStatus(t("fetchingPdf"))
+    const response = await fetch(url)
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-  }
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    handleFileSelect(e)
+    const contentType = response.headers.get("content-type")
+    if (contentType && !contentType.includes("application/pdf")) {
+      throw new Error(t("invalidPdfUrl"))
+    }
+
+    return await response.arrayBuffer()
   }
 
   const convertPDF = async () => {
-    if (!selectedFile) return
+    if (!selectedFile && !pdfUrl.trim()) return
 
     setIsConverting(true)
     setError("")
@@ -154,13 +170,37 @@ export default function PDFConverter() {
       console.log("[v0] PDF.js version:", pdfjsLib.version)
       console.log("[v0] Worker source set to:", pdfjsLib.GlobalWorkerOptions.workerSrc)
 
-      setStatus(t("readingPdf"))
-      const arrayBuffer = await selectedFile.arrayBuffer()
+      let arrayBuffer: ArrayBuffer
+
+      if (selectedFile) {
+        setStatus(t("readingPdf"))
+        arrayBuffer = await selectedFile.arrayBuffer()
+      } else {
+        arrayBuffer = await fetchPdfFromUrl(pdfUrl.trim())
+      }
 
       setStatus(t("parsingPdf"))
       const loadingTask = pdfjsLib.getDocument({
         data: arrayBuffer,
+        password: pdfPassword || undefined,
       })
+
+      loadingTask.onPassword = (callback: (password: string) => void, reason: number) => {
+        if (reason === 1) {
+          // NEED_PASSWORD
+          setShowPasswordInput(true)
+          setStatus(t("passwordRequired"))
+          setIsConverting(false)
+          return
+        } else if (reason === 2) {
+          // INCORRECT_PASSWORD
+          setError(t("incorrectPassword"))
+          setShowPasswordInput(true)
+          setIsConverting(false)
+          return
+        }
+      }
+
       const pdfDocument = await loadingTask.promise
 
       const totalPages = pdfDocument.numPages
@@ -205,7 +245,12 @@ export default function PDFConverter() {
       setStatus(`${t("convertComplete")} ${totalPages} ${t("images")}`)
     } catch (err) {
       console.error("PDF转换错误:", err)
-      setError(`${t("convertFailed")}: ${err instanceof Error ? err.message : t("unknownError")}`)
+      if (err instanceof Error && err.message.includes("password")) {
+        setShowPasswordInput(true)
+        setError(t("passwordRequired"))
+      } else {
+        setError(`${t("convertFailed")}: ${err instanceof Error ? err.message : t("unknownError")}`)
+      }
     } finally {
       setIsConverting(false)
     }
@@ -255,6 +300,9 @@ export default function PDFConverter() {
 
   const clearAll = () => {
     setSelectedFile(null)
+    setPdfUrl("")
+    setPdfPassword("")
+    setShowPasswordInput(false)
     setConvertedImages([])
     setProgress(0)
     setStatus("")
@@ -262,6 +310,25 @@ export default function PDFConverter() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
+  }
+
+  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+  }
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    handleFileSelect(event)
   }
 
   return (
@@ -287,37 +354,97 @@ export default function PDFConverter() {
             <CardDescription>{t("fileUploadDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div
-              className={`flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-                isDragging ? "border-primary bg-muted" : "border-border"
-              }`}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-            >
-              <Label
-                htmlFor="file-input"
-                className="flex cursor-pointer flex-col items-center gap-2 text-muted-foreground"
+            <div className="flex space-x-1 rounded-lg bg-muted p-1">
+              <button
+                type="button"
+                onClick={() => setInputSource("file")}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  inputSource === "file"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <Upload className="h-8 w-8" />
-                <span>{t("dragDrop")}</span>
-              </Label>
-              <Input
-                ref={fileInputRef}
-                id="file-input"
-                type="file"
-                accept="application/pdf"
-                onChange={handleFileSelect}
-                disabled={isConverting}
-                className="sr-only"
-              />
-              {selectedFile && (
-                <p className="text-sm text-muted-foreground">
-                  {t("selected")}: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                </p>
-              )}
+                {t("localFile")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputSource("url")}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  inputSource === "url"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t("urlInput")}
+              </button>
             </div>
+
+            {inputSource === "file" ? (
+              <div
+                className={`flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                  isDragging ? "border-primary bg-muted" : "border-border"
+                }`}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
+                <Label
+                  htmlFor="file-input"
+                  className="flex cursor-pointer flex-col items-center gap-2 text-muted-foreground"
+                >
+                  <Upload className="h-8 w-8" />
+                  <span>{t("dragDrop")}</span>
+                </Label>
+                <Input
+                  ref={fileInputRef}
+                  id="file-input"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFileSelect}
+                  disabled={isConverting}
+                  className="sr-only"
+                />
+                {selectedFile && (
+                  <p className="text-sm text-muted-foreground">
+                    {t("selected")}: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="pdf-url">{t("pdfUrl")}</Label>
+                <Input
+                  id="pdf-url"
+                  type="url"
+                  placeholder={t("pdfUrlPlaceholder")}
+                  value={pdfUrl}
+                  onChange={(e) => handleUrlChange(e.target.value)}
+                  disabled={isConverting}
+                />
+                <p className="text-xs text-muted-foreground">{t("pdfUrlDesc")}</p>
+                {pdfUrl.trim() && (
+                  <p className="text-sm text-muted-foreground">
+                    {t("urlReady")}: {pdfUrl}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {showPasswordInput && (
+              <div className="space-y-2 border-t pt-4">
+                <Label htmlFor="pdf-password">{t("pdfPassword")}</Label>
+                <Input
+                  id="pdf-password"
+                  type="password"
+                  placeholder={t("pdfPasswordPlaceholder")}
+                  value={pdfPassword}
+                  onChange={(e) => setPdfPassword(e.target.value)}
+                  disabled={isConverting}
+                />
+                <p className="text-xs text-muted-foreground">{t("pdfPasswordDesc")}</p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -328,8 +455,8 @@ export default function PDFConverter() {
                   min="1.0"
                   max="5.0"
                   step="0.1"
-                  value={scale}
-                  onChange={(e) => setScale(Number.parseFloat(e.target.value))}
+                  value={scale.toString()}
+                  onChange={(e) => setScale(Number.parseFloat(e.target.value) || 3.0)}
                   disabled={isConverting}
                 />
                 <p className="text-xs text-muted-foreground">{t("scaleDesc")}</p>
@@ -401,8 +528,8 @@ export default function PDFConverter() {
                       min="0.1"
                       max="1.0"
                       step="0.1"
-                      value={watermarkOpacity}
-                      onChange={(e) => setWatermarkOpacity(Number.parseFloat(e.target.value))}
+                      value={watermarkOpacity.toString()}
+                      onChange={(e) => setWatermarkOpacity(Number.parseFloat(e.target.value) || 0.3)}
                       disabled={isConverting}
                     />
                   </div>
@@ -411,10 +538,14 @@ export default function PDFConverter() {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={convertPDF} disabled={!selectedFile || isConverting} className="flex-1">
+              <Button
+                onClick={convertPDF}
+                disabled={(!selectedFile && !pdfUrl.trim()) || isConverting}
+                className="flex-1"
+              >
                 {isConverting ? t("converting") : t("startConvert")}
               </Button>
-              {(selectedFile || convertedImages.length > 0) && (
+              {(selectedFile || pdfUrl.trim() || convertedImages.length > 0) && (
                 <Button variant="outline" onClick={clearAll} disabled={isConverting}>
                   <X className="h-4 w-4" />
                 </Button>

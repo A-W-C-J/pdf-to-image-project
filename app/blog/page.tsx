@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Search, Calendar, Clock, ArrowLeft } from "lucide-react"
+import { Search, Calendar, ArrowLeft } from "lucide-react"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { translations, type Language, type TranslationKey } from "@/lib/i18n"
@@ -78,20 +78,16 @@ export default function BlogPage() {
         const storedArticles = localStorage.getItem("blogArticles")
         if (storedArticles) {
           const articles = JSON.parse(storedArticles)
-          const combinedPosts = [
-            ...articles,
-            ...mockPosts.filter((mock) => !articles.some((stored: BlogPost) => stored.slug === mock.slug)),
-          ]
-          setAllPosts(combinedPosts)
-          setFilteredPosts(combinedPosts)
+          setAllPosts(articles)
+          setFilteredPosts(articles)
         } else {
-          setAllPosts(mockPosts)
-          setFilteredPosts(mockPosts)
+          setAllPosts([])
+          setFilteredPosts([])
         }
       } catch (error) {
         console.error("Error loading articles:", error)
-        setAllPosts(mockPosts)
-        setFilteredPosts(mockPosts)
+        setAllPosts([])
+        setFilteredPosts([])
       }
     }
 
@@ -171,13 +167,11 @@ export default function BlogPage() {
           {filteredPosts.map((post) => (
             <Card key={post.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-lg leading-tight">
-                    <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">
-                      {language === "zh" ? post.title : post.titleEn}
-                    </Link>
-                  </CardTitle>
-                </div>
+                <CardTitle className="text-lg leading-tight">
+                  <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">
+                    {language === "zh" ? post.title : post.titleEn}
+                  </Link>
+                </CardTitle>
                 <CardDescription className="line-clamp-3">
                   {language === "zh" ? post.excerpt : post.excerptEn}
                 </CardDescription>
@@ -192,15 +186,9 @@ export default function BlogPage() {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {new Date(post.publishedAt).toLocaleDateString(language === "zh" ? "zh-CN" : "en-US")}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {post.readTime} {language === "zh" ? "分钟阅读" : "min read"}
-                  </div>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  {new Date(post.publishedAt).toLocaleDateString(language === "zh" ? "zh-CN" : "en-US")}
                 </div>
               </CardContent>
             </Card>
@@ -209,7 +197,23 @@ export default function BlogPage() {
 
         {filteredPosts.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">{language === "zh" ? "没有找到相关文章" : "No articles found"}</p>
+            <p className="text-muted-foreground">
+              {searchTerm
+                ? language === "zh"
+                  ? "没有找到相关文章"
+                  : "No articles found"
+                : language === "zh"
+                  ? "暂无文章，请前往管理界面创建"
+                  : "No articles yet, please create some in the admin interface"}
+            </p>
+            {!searchTerm && (
+              <Link
+                href="/blog/admin"
+                className="inline-block mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                {language === "zh" ? "前往管理界面" : "Go to Admin"}
+              </Link>
+            )}
           </div>
         )}
       </main>

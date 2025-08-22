@@ -79,7 +79,7 @@ export default function BlogAdminPage() {
 
   const handleLogin = () => {
     // Simple password check - in production, use proper authentication
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "wmj141519"
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
     if (password === adminPassword) {
       setIsAuthenticated(true)
       setError("")

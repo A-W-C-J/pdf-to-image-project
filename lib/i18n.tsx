@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
 export type Language = "zh" | "en"
 
@@ -131,6 +131,19 @@ export const translations = {
 
 export type TranslationKey = keyof typeof translations.zh
 
+function detectBrowserLanguage(): Language {
+  if (typeof window === "undefined") return "zh" // Default for SSR
+
+  const browserLang = navigator.language || navigator.languages?.[0] || "zh"
+
+  // Check if browser language starts with supported language codes
+  if (browserLang.startsWith("zh")) return "zh"
+  if (browserLang.startsWith("en")) return "en"
+
+  // Default fallback
+  return "zh"
+}
+
 // Language Context
 interface LanguageContextType {
   language: Language
@@ -141,7 +154,22 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("zh")
+  const [language, setLanguage] = useState<Language>(() => {
+    // Check localStorage first, then browser language
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("preferred-language") as Language
+      if (saved && (saved === "zh" || saved === "en")) {
+        return saved
+      }
+    }
+    return detectBrowserLanguage()
+  })
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("preferred-language", language)
+    }
+  }, [language])
 
   const t = (key: TranslationKey): string => translations[language][key]
 

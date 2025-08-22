@@ -51,11 +51,12 @@ export default function BlogAdminPage() {
 
         if (error) {
           console.error("Error loading articles:", error)
-          setError("加载文章失败")
+          setError(`加载文章失败: ${error.message || '未知错误'}`)
           return
         }
 
         setPosts(data || [])
+        console.log('博客数据加载成功:', data?.length || 0, '篇文章')
       } catch (error) {
         console.error("Error loading articles:", error)
         setError("加载文章失败")
@@ -147,6 +148,16 @@ export default function BlogAdminPage() {
         // Add to local state
         setPosts([data, ...posts])
         setSuccess("文章已创建")
+      }
+
+      // 重新加载数据以确保列表更新
+      const { data: updatedPosts, error: loadError } = await supabase
+        .from("blog_posts")
+        .select("*")
+        .order("created_at", { ascending: false })
+      
+      if (!loadError && updatedPosts) {
+        setPosts(updatedPosts)
       }
 
       setEditingPost(null)
@@ -460,6 +471,11 @@ export default function BlogAdminPage() {
             {loading && posts.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">加载中...</p>
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">暂无博客文章</p>
+                <p className="text-sm text-muted-foreground mt-2">点击"新建文章"开始创建您的第一篇博客</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">

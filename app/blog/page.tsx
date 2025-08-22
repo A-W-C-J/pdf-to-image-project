@@ -8,60 +8,27 @@ import { Search, Calendar, ArrowLeft } from "lucide-react"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { translations, type Language, type TranslationKey } from "@/lib/i18n"
+import { createClient } from "@/lib/supabase/client"
 
 interface BlogPost {
   id: string
   title: string
-  titleEn: string
+  title_en?: string
   excerpt: string
-  excerptEn: string
+  excerpt_en?: string
   content: string
-  contentEn: string
-  tags: string[]
-  tagsEn: string[]
-  publishedAt: string
-  readTime: number
+  content_en?: string
+  tags?: string[]
+  tags_en?: string[]
+  created_at: string
+  read_time?: number
   slug: string
-  seoKeywords: string[]
-  seoKeywordsEn: string[]
+  published?: boolean
+  author?: string
+  updated_at?: string
 }
 
-const mockPosts: BlogPost[] = [
-  {
-    id: "1",
-    title: "如何高效转换PDF文件为图片格式",
-    titleEn: "How to Efficiently Convert PDF Files to Image Format",
-    excerpt: "详细介绍PDF转图片的最佳实践，包括格式选择、质量优化和批量处理技巧。",
-    excerptEn:
-      "Comprehensive guide on PDF to image conversion best practices, including format selection, quality optimization, and batch processing tips.",
-    content: "PDF转换内容...",
-    contentEn: "PDF conversion content...",
-    tags: ["PDF转换", "图片格式", "批量处理"],
-    tagsEn: ["PDF Conversion", "Image Format", "Batch Processing"],
-    publishedAt: "2024-01-15",
-    readTime: 5,
-    slug: "efficient-pdf-to-image-conversion",
-    seoKeywords: ["PDF转图片", "在线PDF转换器", "免费PDF工具"],
-    seoKeywordsEn: ["PDF to image", "online PDF converter", "free PDF tool"],
-  },
-  {
-    id: "2",
-    title: "PDF文件加密与密码保护完整指南",
-    titleEn: "Complete Guide to PDF Encryption and Password Protection",
-    excerpt: "学习如何处理受密码保护的PDF文件，包括解密方法和安全最佳实践。",
-    excerptEn:
-      "Learn how to handle password-protected PDF files, including decryption methods and security best practices.",
-    content: "PDF加密内容...",
-    contentEn: "PDF encryption content...",
-    tags: ["PDF安全", "密码保护", "文件加密"],
-    tagsEn: ["PDF Security", "Password Protection", "File Encryption"],
-    publishedAt: "2024-01-10",
-    readTime: 7,
-    slug: "pdf-encryption-password-protection-guide",
-    seoKeywords: ["PDF密码", "PDF解密", "PDF安全"],
-    seoKeywordsEn: ["PDF password", "PDF decryption", "PDF security"],
-  },
-]
+// 博客数据现在从 Supabase 数据库加载
 
 export default function BlogPage() {
   const [language, setLanguage] = useState<Language>("zh")
@@ -69,30 +36,65 @@ export default function BlogPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filteredPosts, setFilteredPosts] = useState<BlogPost[]>([])
   const [allPosts, setAllPosts] = useState<BlogPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const supabase = createClient()
 
   const t = (key: TranslationKey): string => translations[language][key]
 
   useEffect(() => {
-    const loadArticles = () => {
+    const loadArticles = async () => {
       try {
-        const storedArticles = localStorage.getItem("blogArticles")
-        if (storedArticles) {
-          const articles = JSON.parse(storedArticles)
-          setAllPosts(articles)
-          setFilteredPosts(articles)
-        } else {
+        setLoading(true)
+        setError(null)
+        
+        const { data, error: supabaseError } = await supabase
+          .from("blog_posts")
+          .select("*")
+          .order("created_at", { ascending: false })
+
+        if (supabaseError) {
+          console.error("Error loading articles:", supabaseError)
+          setError(`加载文章失败: ${supabaseError.message || '未知错误'}`)
           setAllPosts([])
           setFilteredPosts([])
+          return
         }
+
+        // 转换数据格式以匹配 BlogPost 接口
+        const formattedPosts: BlogPost[] = (data || []).map(post => ({
+          id: post.id,
+          title: post.title || '',
+          title_en: post.title_en,
+          excerpt: post.excerpt || '',
+          excerpt_en: post.excerpt_en,
+          content: post.content || '',
+          content_en: post.content_en,
+          tags: Array.isArray(post.tags) ? post.tags : undefined,
+          tags_en: Array.isArray(post.tags_en) ? post.tags_en : undefined,
+          created_at: post.created_at || new Date().toISOString(),
+          read_time: post.read_time || 5,
+          slug: post.slug || '',
+          published: post.published,
+          author: post.author,
+          updated_at: post.updated_at
+        }))
+
+        setAllPosts(formattedPosts)
+        setFilteredPosts(formattedPosts)
+        console.log('博客数据加载成功:', formattedPosts.length, '篇文章')
       } catch (error) {
         console.error("Error loading articles:", error)
+        setError('加载文章时发生错误')
         setAllPosts([])
         setFilteredPosts([])
+      } finally {
+        setLoading(false)
       }
     }
 
     loadArticles()
-  }, [])
+  }, [supabase])
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark")
@@ -105,9 +107,9 @@ export default function BlogPage() {
     }
 
     const filtered = allPosts.filter((post) => {
-      const title = language === "zh" ? post.title : post.titleEn
-      const excerpt = language === "zh" ? post.excerpt : post.excerptEn
-      const tags = language === "zh" ? post.tags : post.tagsEn
+      const title = language === "zh" ? post.title : (post.title_en || post.title)
+      const excerpt = language === "zh" ? post.excerpt : (post.excerpt_en || post.excerpt)
+      const tags = language === "zh" ? (post.tags || []) : (post.tags_en || post.tags || [])
 
       return (
         title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -163,39 +165,65 @@ export default function BlogPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPosts.map((post) => (
-            <Card key={post.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg leading-tight">
-                  <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">
-                    {language === "zh" ? post.title : post.titleEn}
-                  </Link>
-                </CardTitle>
-                <CardDescription className="line-clamp-3">
-                  {language === "zh" ? post.excerpt : post.excerptEn}
-                </CardDescription>
-              </CardHeader>
+        {/* 加载状态 */}
+        {loading && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              {language === "zh" ? "正在加载文章..." : "Loading articles..."}
+            </p>
+          </div>
+        )}
 
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-1">
-                  {(language === "zh" ? post.tags : post.tagsEn).map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
+        {/* 错误状态 */}
+        {error && (
+          <div className="text-center py-12">
+            <p className="text-red-500 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            >
+              {language === "zh" ? "重新加载" : "Reload"}
+            </button>
+          </div>
+        )}
 
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Calendar className="h-3 w-3 mr-1" />
-                  {new Date(post.publishedAt).toLocaleDateString(language === "zh" ? "zh-CN" : "en-US")}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* 博客列表 */}
+        {!loading && !error && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredPosts.map((post) => (
+              <Card key={post.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="text-lg leading-tight">
+                    <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">
+                      {language === "zh" ? post.title : (post.title_en || post.title)}
+                    </Link>
+                  </CardTitle>
+                  <CardDescription className="line-clamp-3">
+                    {language === "zh" ? post.excerpt : (post.excerpt_en || post.excerpt)}
+                  </CardDescription>
+                </CardHeader>
 
-        {filteredPosts.length === 0 && (
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-1">
+                    {(language === "zh" ? (post.tags || []) : (post.tags_en || post.tags || [])).map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {new Date(post.created_at).toLocaleDateString(language === "zh" ? "zh-CN" : "en-US")}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* 空状态 */}
+        {!loading && !error && filteredPosts.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
               {searchTerm

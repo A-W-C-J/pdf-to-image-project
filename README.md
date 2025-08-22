@@ -32,7 +32,7 @@ Visit **[www.pdf2img.top](https://www.pdf2img.top)** to use the converter direct
 
 ### Local Development
 
-\`\`\`bash
+```bash
 # Clone the repository
 git clone https://github.com/A-W-C-J/pdf-to-image-project.git
 
@@ -42,8 +42,35 @@ cd pdf-to-image-project
 # Install dependencies
 npm install
 
+# Configure environment variables
+cp .env.example .env.local
+# Edit .env.local and add your Supabase credentials
+
 # Start development server
 npm run dev
+```
+
+#### Environment Setup
+
+1. **Supabase Configuration**: 
+   - Visit [Supabase Dashboard](https://supabase.com/dashboard/project/_/settings/api)
+   - Copy your project URL and anon key
+   - Add them to `.env.local`:
+     ```
+     NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+     NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+     ```
+
+2. **Database Setup**:
+   - Execute the SQL script in `scripts/001_create_blog_tables.sql` in your Supabase SQL Editor
+   - This creates the necessary tables for the blog feature
+   - See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed instructions
+
+3. **Optional - Blog Feature**:
+   - Add DeepSeek API key for AI blog generation:
+     ```
+     DEEPSEEK_API_KEY=your_deepseek_api_key
+     ``` run dev
 \`\`\`
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.

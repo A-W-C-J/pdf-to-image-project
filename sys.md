@@ -22,7 +22,7 @@
 
 PDF.js通过在Canvas上渲染PDF，然后转换Canvas为图片来实现转换。
 
-```mermaid
+\`\`\`mermaid
 graph TD
     A[用户选择PDF文件] --> B[FileReader读取为ArrayBuffer]
     B --> C[pdfjsLib.getDocument加载PDF文档]
@@ -34,12 +34,12 @@ graph TD
     H --> I[Canvas.toDataURL转换为图片Data URL]
     I --> J[存储图片数据或创建IMG元素显示]
     J --> K[提供批量下载（打包为ZIP）]
-```
+\`\`\`
 
 ### **4. 关键代码逻辑 (Key Code Logic)**
 
 #### **HTML结构 (伪代码)**
-```html
+\`\`\`html
 <!DOCTYPE html>
 <html>
 <head>
@@ -69,10 +69,10 @@ graph TD
     </script>
 </body>
 </html>
-```
+\`\`\`
 
 #### **PDF.js 初始化和核心转换逻辑 (ES Module)**
-```javascript
+\`\`\`javascript
 // 从CDN引入PDF.js ES模块 
 import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.min.mjs';
 // 非常重要：设置Worker路径 
@@ -184,7 +184,7 @@ downloadAllBtn.addEventListener('click', async () => {
 
     statusDiv.textContent = '下载已开始！';
 });
-```
+\`\`\`
 *(注意：请将PDF.js版本号`@4.2.67`替换为最新稳定版本)*
 
 ### **5. 优化考虑 (Optimization Considerations)**

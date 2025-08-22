@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileImage, Upload, X } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface ConvertedImage {
   dataUrl: string
@@ -29,6 +30,58 @@ export default function PDFConverter() {
   const [error, setError] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+
+  const [enableWatermark, setEnableWatermark] = useState(false)
+  const [watermarkText, setWatermarkText] = useState("WATERMARK")
+  const [watermarkPosition, setWatermarkPosition] = useState("center")
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.3)
+
+  const applyWatermark = (canvas: HTMLCanvasElement, text: string, position: string, opacity: number) => {
+    const context = canvas.getContext("2d")!
+    const canvasWidth = canvas.width
+    const canvasHeight = canvas.height
+
+    context.save()
+
+    context.globalAlpha = opacity
+    context.fillStyle = "#000000"
+    context.font = `${Math.max(canvasWidth, canvasHeight) / 20}px Arial`
+    context.textAlign = "center"
+    context.textBaseline = "middle"
+
+    let x = canvasWidth / 2
+    let y = canvasHeight / 2
+
+    switch (position) {
+      case "top-left":
+        x = canvasWidth * 0.2
+        y = canvasHeight * 0.1
+        break
+      case "top-right":
+        x = canvasWidth * 0.8
+        y = canvasHeight * 0.1
+        break
+      case "bottom-left":
+        x = canvasWidth * 0.2
+        y = canvasHeight * 0.9
+        break
+      case "bottom-right":
+        x = canvasWidth * 0.8
+        y = canvasHeight * 0.9
+        break
+      case "center":
+      default:
+        x = canvasWidth / 2
+        y = canvasHeight / 2
+        break
+    }
+
+    context.translate(x, y)
+    context.rotate(-Math.PI / 6)
+    context.fillText(text, 0, 0)
+
+    context.restore()
+  }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
     let file: File | undefined | null = null
@@ -123,6 +176,10 @@ export default function PDFConverter() {
 
         await page.render(renderContext).promise
 
+        if (enableWatermark && watermarkText.trim()) {
+          applyWatermark(canvas, watermarkText, watermarkPosition, watermarkOpacity)
+        }
+
         const imageDataUrl = canvas.toDataURL(format, format === "image/jpeg" ? 0.9 : undefined)
 
         images.push({
@@ -159,7 +216,6 @@ export default function PDFConverter() {
     setStatus("正在创建ZIP包...")
 
     try {
-      // 动态导入JSZip
       const JSZip = (await import("jszip")).default
       const zip = new JSZip()
       const extension = format === "image/png" ? "png" : "jpg"
@@ -271,10 +327,69 @@ export default function PDFConverter() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="image/png">PNG (无损)</SelectItem>
-                    <SelectItem value="image/jpeg\">JPEG (压缩)</SelectItem>
+                    <SelectItem value="image/jpeg">JPEG (压缩)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="enable-watermark"
+                  checked={enableWatermark}
+                  onCheckedChange={(checked) => setEnableWatermark(checked as boolean)}
+                  disabled={isConverting}
+                />
+                <Label htmlFor="enable-watermark" className="text-sm font-medium">
+                  添加水印
+                </Label>
+              </div>
+
+              {enableWatermark && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="watermark-text">水印文字</Label>
+                    <Input
+                      id="watermark-text"
+                      value={watermarkText}
+                      onChange={(e) => setWatermarkText(e.target.value)}
+                      disabled={isConverting}
+                      placeholder="输入水印文字"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>水印位置</Label>
+                    <Select value={watermarkPosition} onValueChange={setWatermarkPosition} disabled={isConverting}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="center">居中</SelectItem>
+                        <SelectItem value="top-left">左上角</SelectItem>
+                        <SelectItem value="top-right">右上角</SelectItem>
+                        <SelectItem value="bottom-left">左下角</SelectItem>
+                        <SelectItem value="bottom-right">右下角</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="watermark-opacity">透明度 ({Math.round(watermarkOpacity * 100)}%)</Label>
+                    <Input
+                      id="watermark-opacity"
+                      type="range"
+                      min="0.1"
+                      max="1.0"
+                      step="0.1"
+                      value={watermarkOpacity}
+                      onChange={(e) => setWatermarkOpacity(Number.parseFloat(e.target.value))}
+                      disabled={isConverting}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">
@@ -301,7 +416,7 @@ export default function PDFConverter() {
               {status && !error && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">{status}</p>
-                  {isConverting && <Progress value={progress} className="w-full" />}\
+                  {isConverting && <Progress value={progress} className="w-full" />}
                 </div>
               )}
             </CardContent>
@@ -341,7 +456,7 @@ export default function PDFConverter() {
                     </div>
                     <p className="text-sm text-center text-muted-foreground">第 {image.pageNumber} 页</p>
                   </div>
-                ))}\
+                ))}
               </div>
             </CardContent>
           </Card>

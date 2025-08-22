@@ -47,7 +47,7 @@
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
     "geist": "latest",
-    "gif.js": "^0.2.0",
+    "gif.js": "latest",
     "highlight.js": "latest",
     "input-otp": "1.4.1",
     "jszip": "latest",
@@ -69,7 +69,7 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "tesseract.js": "^6.0.1",
+    "tesseract.js": "latest",
     "vaul": "^0.9.9",
     "zod": "3.25.67"
   },

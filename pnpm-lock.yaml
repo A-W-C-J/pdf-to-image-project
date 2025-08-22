@@ -123,7 +123,7 @@ importers:
         specifier: latest
         version: 1.4.2(next@15.2.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0))
       gif.js:
-        specifier: ^0.2.0
+        specifier: latest
         version: 0.2.0
       highlight.js:
         specifier: latest
@@ -189,7 +189,7 @@ importers:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@4.1.9)
       tesseract.js:
-        specifier: ^6.0.1
+        specifier: latest
         version: 6.0.1
       vaul:
         specifier: ^0.9.9

@@ -62,6 +62,9 @@ export const translations = {
     creatingZip: "正在创建ZIP文件...",
     downloadStarted: "下载已开始",
     downloadFailed: "下载失败",
+    toggleTheme: "切换主题",
+    lightTheme: "浅色主题",
+    darkTheme: "深色主题",
   },
   en: {
     title: "PDF to Image Converter",
@@ -120,6 +123,9 @@ export const translations = {
     creatingZip: "Creating ZIP file...",
     downloadStarted: "Download started",
     downloadFailed: "Download failed",
+    toggleTheme: "Toggle theme",
+    lightTheme: "Light Theme",
+    darkTheme: "Dark Theme",
   },
 } as const
 
@@ -162,7 +168,7 @@ export const seoTranslations = {
     twitterDescription: "免费的在线PDF转图片转换器，高质量输出，隐私安全",
     structuredDataName: "PDF转图片工具",
     structuredDataDescription: "免费的在线PDF转图片转换工具，支持多种格式输出",
-    canonicalUrl: "https://pdf-converter.example.com",
+    canonicalUrl: "https://www.pdf2img.top/",
   },
   en: {
     title: "PDF to Image Converter - Free Online PDF Converter",
@@ -176,6 +182,6 @@ export const seoTranslations = {
     twitterDescription: "Free online PDF to image converter with high-quality output and privacy protection",
     structuredDataName: "PDF to Image Converter",
     structuredDataDescription: "Free online PDF to image conversion tool with multiple format support",
-    canonicalUrl: "https://pdf-converter.example.com/en",
+    canonicalUrl: "https://www.pdf2img.top/en",
   },
 }

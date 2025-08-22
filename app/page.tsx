@@ -333,13 +333,13 @@ export default function PDFConverter() {
 
   return (
     <div className="min-h-screen bg-background p-4">
-      <div className="fixed top-4 right-4 z-10 flex gap-2">
+      <div className="fixed top-4 right-4 z-10 flex flex-col sm:flex-row gap-2">
         <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} language={language} />
         <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
       </div>
 
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-2 pt-16 sm:pt-8">
           <h1 className="text-3xl font-bold">{t("title")}</h1>
           <p className="text-muted-foreground">{t("subtitle")}</p>
           <p className="text-sm text-muted-foreground">{t("privacy")}</p>

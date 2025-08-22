@@ -71,7 +71,7 @@ PDF.js采用模块化架构设计：
 
 ### 基础PDF渲染
 
-```javascript
+\`\`\`javascript
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.min.js";

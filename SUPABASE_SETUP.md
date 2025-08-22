@@ -3,14 +3,14 @@
 ## 问题描述
 
 如果您在保存博客时遇到以下错误：
-```
+\`\`\`
 {
     "code": "PGRST205",
     "details": null,
     "hint": null,
     "message": "Could not find the table 'public.blog_posts' in the schema cache"
 }
-```
+\`\`\`
 
 这表示您的 Supabase 数据库中缺少必要的表结构。
 
@@ -50,14 +50,14 @@
 
 如果您需要公开访问博客数据，可以添加以下策略：
 
-```sql
+\`\`\`sql
 -- 允许所有人读取已发布的博客文章
 CREATE POLICY "Allow public read access to published posts" ON public.blog_posts
     FOR SELECT USING (published = true);
 
 -- 启用行级安全
 ALTER TABLE public.blog_posts ENABLE ROW LEVEL SECURITY;
-```
+\`\`\`
 
 ## 常见问题
 

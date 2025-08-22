@@ -41,7 +41,7 @@
 **3. 使用结构化数据（Schema Markup）：**
 在你的网站代码中（例如页脚或“关于”页面），可以添加这样的结构化数据，明确告诉搜索引擎你和GitHub项目的关系：
 
-```html
+\`\`\`html
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -57,7 +57,7 @@
   }
 }
 </script>
-```
+\`\`\`
 
 **4. 双向推广：**
 *   **在GitHub的README.md最顶部**，放上显眼的横幅或文字，指向你的主站 `https://www.pdf2img.top`，写上“访问我们的在线工具”或“Try the Online Tool Here”。

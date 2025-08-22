@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,9 @@ import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileImage, Upload, X } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { LanguageSwitcher } from "@/components/language-switcher"
+import { ThemeSwitcher } from "@/components/theme-switcher"
+import { translations, type Language, type TranslationKey } from "@/lib/i18n"
 
 interface ConvertedImage {
   dataUrl: string
@@ -20,6 +23,14 @@ interface ConvertedImage {
 }
 
 export default function PDFConverter() {
+  const [language, setLanguage] = useState<Language>("zh")
+  const [theme, setTheme] = useState<"light" | "dark">("light")
+  const t = (key: TranslationKey): string => translations[language][key]
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark")
+  }, [theme])
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [scale, setScale] = useState(3.0)
   const [format, setFormat] = useState("image/png")
@@ -98,7 +109,7 @@ export default function PDFConverter() {
       setProgress(0)
       setStatus("")
     } else {
-      setError("请选择有效的PDF文件")
+      setError(t("selectValidPdf"))
     }
     setIsDragging(false)
   }
@@ -133,7 +144,7 @@ export default function PDFConverter() {
     setError("")
     setConvertedImages([])
     setProgress(0)
-    setStatus("正在加载PDF.js...")
+    setStatus(t("loadingPdfjs"))
 
     try {
       const pdfjsLib = await import("pdfjs-dist")
@@ -143,22 +154,22 @@ export default function PDFConverter() {
       console.log("[v0] PDF.js version:", pdfjsLib.version)
       console.log("[v0] Worker source set to:", pdfjsLib.GlobalWorkerOptions.workerSrc)
 
-      setStatus("正在读取PDF文件...")
+      setStatus(t("readingPdf"))
       const arrayBuffer = await selectedFile.arrayBuffer()
 
-      setStatus("正在解析PDF文档...")
+      setStatus(t("parsingPdf"))
       const loadingTask = pdfjsLib.getDocument({
         data: arrayBuffer,
       })
       const pdfDocument = await loadingTask.promise
 
       const totalPages = pdfDocument.numPages
-      setStatus(`共 ${totalPages} 页，开始转换...`)
+      setStatus(`${t("totalPages")} ${totalPages} ${t("startConverting")}`)
 
       const images: ConvertedImage[] = []
 
       for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-        setStatus(`正在转换第 ${pageNumber}/${totalPages} 页...`)
+        setStatus(`${t("convertingPage")} ${pageNumber}/${totalPages} ${t("pageUnit")}...`)
         setProgress(((pageNumber - 1) / totalPages) * 100)
 
         const page = await pdfDocument.getPage(pageNumber)
@@ -191,10 +202,10 @@ export default function PDFConverter() {
 
       setConvertedImages(images)
       setProgress(100)
-      setStatus(`转换完成！共生成 ${totalPages} 张图片`)
+      setStatus(`${t("convertComplete")} ${totalPages} ${t("images")}`)
     } catch (err) {
       console.error("PDF转换错误:", err)
-      setError(`转换失败: ${err instanceof Error ? err.message : "未知错误"}`)
+      setError(`${t("convertFailed")}: ${err instanceof Error ? err.message : t("unknownError")}`)
     } finally {
       setIsConverting(false)
     }
@@ -213,7 +224,7 @@ export default function PDFConverter() {
   const downloadAll = async () => {
     if (convertedImages.length === 0) return
 
-    setStatus("正在创建ZIP包...")
+    setStatus(t("creatingZip"))
 
     try {
       const JSZip = (await import("jszip")).default
@@ -236,9 +247,9 @@ export default function PDFConverter() {
       document.body.removeChild(link)
       URL.revokeObjectURL(downloadUrl)
 
-      setStatus("下载已开始！")
+      setStatus(t("downloadStarted"))
     } catch (err) {
-      setError(`下载失败: ${err instanceof Error ? err.message : "未知错误"}`)
+      setError(`${t("downloadFailed")}: ${err instanceof Error ? err.message : t("unknownError")}`)
     }
   }
 
@@ -255,20 +266,25 @@ export default function PDFConverter() {
 
   return (
     <div className="min-h-screen bg-background p-4">
+      <div className="fixed top-4 right-4 z-10 flex gap-2">
+        <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} language={language} />
+        <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
+      </div>
+
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">PDF转图片工具</h1>
-          <p className="text-muted-foreground">支持批量转换和下载</p>
-          <p className="text-sm text-muted-foreground">纯前端转换，无服务器，保护您的隐私</p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="text-muted-foreground">{t("subtitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("privacy")}</p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              文件上传与设置
+              {t("fileUpload")}
             </CardTitle>
-            <CardDescription>选择或拖放PDF文件并配置转换参数</CardDescription>
+            <CardDescription>{t("fileUploadDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div
@@ -285,7 +301,7 @@ export default function PDFConverter() {
                 className="flex cursor-pointer flex-col items-center gap-2 text-muted-foreground"
               >
                 <Upload className="h-8 w-8" />
-                <span>拖放文件到此处，或点击选择文件</span>
+                <span>{t("dragDrop")}</span>
               </Label>
               <Input
                 ref={fileInputRef}
@@ -298,14 +314,14 @@ export default function PDFConverter() {
               />
               {selectedFile && (
                 <p className="text-sm text-muted-foreground">
-                  已选择: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                  {t("selected")}: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
                 </p>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="scale">缩放比例 (越大越清晰)</Label>
+                <Label htmlFor="scale">{t("scale")}</Label>
                 <Input
                   id="scale"
                   type="number"
@@ -316,18 +332,18 @@ export default function PDFConverter() {
                   onChange={(e) => setScale(Number.parseFloat(e.target.value))}
                   disabled={isConverting}
                 />
-                <p className="text-xs text-muted-foreground">1.0 = 72DPI, 2.0 = 144DPI, 3.0 = 216DPI</p>
+                <p className="text-xs text-muted-foreground">{t("scaleDesc")}</p>
               </div>
 
               <div className="space-y-2">
-                <Label>输出格式</Label>
+                <Label>{t("outputFormat")}</Label>
                 <Select value={format} onValueChange={setFormat} disabled={isConverting}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="image/png">PNG (无损)</SelectItem>
-                    <SelectItem value="image/jpeg">JPEG (压缩)</SelectItem>
+                    <SelectItem value="image/png">{t("pngFormat")}</SelectItem>
+                    <SelectItem value="image/jpeg">{t("jpegFormat")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -342,41 +358,43 @@ export default function PDFConverter() {
                   disabled={isConverting}
                 />
                 <Label htmlFor="enable-watermark" className="text-sm font-medium">
-                  添加水印
+                  {t("addWatermark")}
                 </Label>
               </div>
 
               {enableWatermark && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
                   <div className="space-y-2">
-                    <Label htmlFor="watermark-text">水印文字</Label>
+                    <Label htmlFor="watermark-text">{t("watermarkText")}</Label>
                     <Input
                       id="watermark-text"
                       value={watermarkText}
                       onChange={(e) => setWatermarkText(e.target.value)}
                       disabled={isConverting}
-                      placeholder="输入水印文字"
+                      placeholder={t("watermarkTextPlaceholder")}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>水印位置</Label>
+                    <Label>{t("watermarkPosition")}</Label>
                     <Select value={watermarkPosition} onValueChange={setWatermarkPosition} disabled={isConverting}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="center">居中</SelectItem>
-                        <SelectItem value="top-left">左上角</SelectItem>
-                        <SelectItem value="top-right">右上角</SelectItem>
-                        <SelectItem value="bottom-left">左下角</SelectItem>
-                        <SelectItem value="bottom-right">右下角</SelectItem>
+                        <SelectItem value="center">{t("center")}</SelectItem>
+                        <SelectItem value="top-left">{t("topLeft")}</SelectItem>
+                        <SelectItem value="top-right">{t("topRight")}</SelectItem>
+                        <SelectItem value="bottom-left">{t("bottomLeft")}</SelectItem>
+                        <SelectItem value="bottom-right">{t("bottomRight")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="watermark-opacity">透明度 ({Math.round(watermarkOpacity * 100)}%)</Label>
+                    <Label htmlFor="watermark-opacity">
+                      {t("opacity")} ({Math.round(watermarkOpacity * 100)}%)
+                    </Label>
                     <Input
                       id="watermark-opacity"
                       type="range"
@@ -394,7 +412,7 @@ export default function PDFConverter() {
 
             <div className="flex gap-2">
               <Button onClick={convertPDF} disabled={!selectedFile || isConverting} className="flex-1">
-                {isConverting ? "转换中..." : "开始转换"}
+                {isConverting ? t("converting") : t("startConvert")}
               </Button>
               {(selectedFile || convertedImages.length > 0) && (
                 <Button variant="outline" onClick={clearAll} disabled={isConverting}>
@@ -429,11 +447,11 @@ export default function PDFConverter() {
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <FileImage className="h-5 w-5" />
-                  转换结果 ({convertedImages.length} 张图片)
+                  {t("convertResult")} ({convertedImages.length} {t("images")})
                 </span>
                 <Button onClick={downloadAll} className="flex items-center gap-2">
                   <Download className="h-4 w-4" />
-                  下载全部 (ZIP)
+                  {t("downloadAll")}
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -444,17 +462,19 @@ export default function PDFConverter() {
                     <div className="relative group">
                       <img
                         src={image.dataUrl || "/placeholder.svg"}
-                        alt={`第 ${image.pageNumber} 页`}
+                        alt={`${t("page")} ${image.pageNumber} ${t("pageUnit")}`}
                         className="w-full h-auto border rounded-lg shadow-sm"
                       />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                         <Button size="sm" onClick={() => downloadSingle(image)} className="flex items-center gap-1">
                           <Download className="h-3 w-3" />
-                          下载
+                          {t("download")}
                         </Button>
                       </div>
                     </div>
-                    <p className="text-sm text-center text-muted-foreground">第 {image.pageNumber} 页</p>
+                    <p className="text-sm text-center text-muted-foreground">
+                      {t("page")} {image.pageNumber} {t("pageUnit")}
+                    </p>
                   </div>
                 ))}
               </div>

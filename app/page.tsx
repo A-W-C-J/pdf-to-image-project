@@ -20,7 +20,7 @@ interface ConvertedImage {
 
 export default function PDFConverter() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [scale, setScale] = useState(2.0)
+  const [scale, setScale] = useState(3.0)
   const [format, setFormat] = useState("image/png")
   const [isConverting, setIsConverting] = useState(false)
   const [convertedImages, setConvertedImages] = useState<ConvertedImage[]>([])
@@ -28,9 +28,16 @@ export default function PDFConverter() {
   const [status, setStatus] = useState("")
   const [error, setError] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
+    let file: File | undefined | null = null
+    if ("dataTransfer" in event) {
+      file = event.dataTransfer.files?.[0]
+    } else {
+      file = event.target.files?.[0]
+    }
+
     if (file && file.type === "application/pdf") {
       setSelectedFile(file)
       setError("")
@@ -40,6 +47,30 @@ export default function PDFConverter() {
     } else {
       setError("请选择有效的PDF文件")
     }
+    setIsDragging(false)
+  }
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    handleFileSelect(e)
   }
 
   const convertPDF = async () => {
@@ -54,7 +85,7 @@ export default function PDFConverter() {
     try {
       const pdfjsLib = await import("pdfjs-dist")
 
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
 
       console.log("[v0] PDF.js version:", pdfjsLib.version)
       console.log("[v0] Worker source set to:", pdfjsLib.GlobalWorkerOptions.workerSrc)
@@ -171,7 +202,8 @@ export default function PDFConverter() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">PDF转图片工具</h1>
-          <p className="text-muted-foreground">基于PDF.js的纯前端解决方案，支持批量转换和下载</p>
+          <p className="text-muted-foreground">支持批量转换和下载</p>
+          <p className="text-sm text-muted-foreground">纯前端转换，无服务器，保护您的隐私</p>
         </div>
 
         <Card>
@@ -180,11 +212,25 @@ export default function PDFConverter() {
               <Upload className="h-5 w-5" />
               文件上传与设置
             </CardTitle>
-            <CardDescription>选择PDF文件并配置转换参数</CardDescription>
+            <CardDescription>选择或拖放PDF文件并配置转换参数</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="file-input">选择PDF文件</Label>
+            <div
+              className={`flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                isDragging ? "border-primary bg-muted" : "border-border"
+              }`}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+              <Label
+                htmlFor="file-input"
+                className="flex cursor-pointer flex-col items-center gap-2 text-muted-foreground"
+              >
+                <Upload className="h-8 w-8" />
+                <span>拖放文件到此处，或点击选择文件</span>
+              </Label>
               <Input
                 ref={fileInputRef}
                 id="file-input"
@@ -192,6 +238,7 @@ export default function PDFConverter() {
                 accept="application/pdf"
                 onChange={handleFileSelect}
                 disabled={isConverting}
+                className="sr-only"
               />
               {selectedFile && (
                 <p className="text-sm text-muted-foreground">
@@ -202,7 +249,7 @@ export default function PDFConverter() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="scale">缩放比例 (影响清晰度)</Label>
+                <Label htmlFor="scale">缩放比例 (越大越清晰)</Label>
                 <Input
                   id="scale"
                   type="number"
@@ -224,7 +271,7 @@ export default function PDFConverter() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="image/png">PNG (无损)</SelectItem>
-                    <SelectItem value="image/jpeg">JPEG (压缩)</SelectItem>
+                    <SelectItem value="image/jpeg\">JPEG (压缩)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -254,7 +301,7 @@ export default function PDFConverter() {
               {status && !error && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">{status}</p>
-                  {isConverting && <Progress value={progress} className="w-full" />}
+                  {isConverting && <Progress value={progress} className="w-full" />}\
                 </div>
               )}
             </CardContent>
@@ -294,7 +341,7 @@ export default function PDFConverter() {
                     </div>
                     <p className="text-sm text-center text-muted-foreground">第 {image.pageNumber} 页</p>
                   </div>
-                ))}
+                ))}\
               </div>
             </CardContent>
           </Card>

@@ -55,7 +55,6 @@ export default function BlogPostPage() {
           .from('blog_posts')
           .select('*')
           .eq('slug', decodedSlug)
-          .eq('published', true)
           .single();
 
         if (error) {
@@ -87,14 +86,33 @@ export default function BlogPostPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12">
-        <div className="container mx-auto px-4">
+      <div className="min-h-screen bg-background">
+        <div className="max-w-6xl mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-300 rounded mb-4"></div>
-              <div className="h-4 bg-gray-300 rounded mb-2"></div>
-              <div className="h-4 bg-gray-300 rounded mb-8"></div>
-              <div className="h-64 bg-gray-300 rounded"></div>
+            <div className="animate-pulse space-y-6">
+              <div className="h-6 bg-muted rounded w-32"></div>
+              <Card>
+                <CardHeader className="space-y-4">
+                  <div className="h-8 bg-muted rounded w-3/4"></div>
+                  <div className="flex gap-4">
+                    <div className="h-4 bg-muted rounded w-20"></div>
+                    <div className="h-4 bg-muted rounded w-24"></div>
+                    <div className="h-4 bg-muted rounded w-16"></div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="h-6 bg-muted rounded w-16"></div>
+                    <div className="h-6 bg-muted rounded w-20"></div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="h-4 bg-muted rounded w-full"></div>
+                    <div className="h-4 bg-muted rounded w-5/6"></div>
+                    <div className="h-4 bg-muted rounded w-4/5"></div>
+                    <div className="h-32 bg-muted rounded"></div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -104,13 +122,19 @@ export default function BlogPostPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">{error}</h1>
-            <Link href="/blog" className="text-blue-600 hover:underline">
-              {language === 'zh' ? '返回博客列表' : 'Back to Blog List'}
-            </Link>
+      <div className="min-h-screen bg-background">
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center py-12">
+              <h1 className="text-2xl font-bold text-destructive mb-4">{error}</h1>
+              <Link 
+                href="/blog" 
+                className="inline-flex items-center text-primary hover:text-primary/80 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                {language === 'zh' ? '返回博客列表' : 'Back to Blog List'}
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -129,62 +153,74 @@ export default function BlogPostPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link 
+                href="/blog" 
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {language === 'zh' ? '返回博客列表' : 'Back to Blog List'}
+              </Link>
+              <div className="h-4 w-px bg-border" />
+              <h1 className="text-xl font-semibold">{language === 'zh' ? '技术博客' : 'Tech Blog'}</h1>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* 返回按钮 */}
-          <Link 
-            href="/blog" 
-            className="inline-flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mb-8 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            {language === 'zh' ? '返回博客列表' : 'Back to Blog List'}
-          </Link>
-
           {/* 文章内容 */}
-          <Card className="shadow-xl">
-            <CardHeader className="pb-6">
-              <CardTitle className="text-3xl md:text-4xl font-bold leading-tight mb-4">
-                {language === 'zh' ? post.title : (post.title_en || post.title)}
-              </CardTitle>
-              
-              {/* 文章元信息 */}
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                <div className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  <span>{post.author || (language === 'zh' ? '匿名' : 'Anonymous')}</span>
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="space-y-6">
+              <div className="space-y-4">
+                <CardTitle className="text-3xl md:text-4xl font-bold leading-tight">
+                  {language === 'zh' ? post.title : (post.title_en || post.title)}
+                </CardTitle>
+                
+                {/* 文章元信息 */}
+                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <User className="h-4 w-4" />
+                    <span>{post.author || (language === 'zh' ? '匿名' : 'Anonymous')}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>{formatDate(post.created_at)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      {post.read_time || 5} {language === 'zh' ? '分钟阅读' : 'min read'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>{formatDate(post.created_at)}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  <span>
-                    {post.read_time || 5} {language === 'zh' ? '分钟阅读' : 'min read'}
-                  </span>
-                </div>
+
+                {/* 标签 */}
+                {((language === 'zh' ? post.tags : (post.tags_en || post.tags)) && (language === 'zh' ? post.tags : (post.tags_en || post.tags))!.length > 0) && (
+                  <div className="flex flex-wrap gap-2">
+                    {(language === 'zh' ? post.tags : (post.tags_en || post.tags))!.map((tag, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {/* 摘要 */}
+                {(language === 'zh' ? post.excerpt : (post.excerpt_en || post.excerpt)) && (
+                  <div className="p-4 bg-muted/50 rounded-lg border-l-4 border-primary">
+                    <p className="text-muted-foreground italic leading-relaxed">
+                      {language === 'zh' ? post.excerpt : (post.excerpt_en || post.excerpt)}
+                    </p>
+                  </div>
+                )}
               </div>
-
-              {/* 标签 */}
-              {((language === 'zh' ? post.tags : (post.tags_en || post.tags)) && (language === 'zh' ? post.tags : (post.tags_en || post.tags))!.length > 0) && (
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {(language === 'zh' ? post.tags : (post.tags_en || post.tags))!.map((tag, index) => (
-                    <Badge key={index} variant="secondary">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {/* 摘要 */}
-              {(language === 'zh' ? post.excerpt : (post.excerpt_en || post.excerpt)) && (
-                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-gray-700 dark:text-gray-300 italic">
-                    {language === 'zh' ? post.excerpt : (post.excerpt_en || post.excerpt)}
-                  </p>
-                </div>
-              )}
             </CardHeader>
 
             <CardContent>
@@ -202,38 +238,43 @@ export default function BlogPostPage() {
                           <code className={className}>{children}</code>
                         </pre>
                       ) : (
-                        <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm" {...props}>
+                        <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                           {children}
                         </code>
                       );
                     },
                     // 自定义链接样式
-                    a: ({ children, href, ...props }) => (
-                      <a 
-                        href={href} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                        {...props}
-                      >
-                        {children}
-                      </a>
-                    ),
+                    a: ({ children, href, ...props }) => {
+                      // 检查是否为外部链接
+                      const isExternal = href && (href.startsWith('http') || href.startsWith('https'));
+                      
+                      return (
+                        <a 
+                          href={href} 
+                          target={isExternal ? "_blank" : undefined}
+                          rel={isExternal ? "noopener noreferrer nofollow" : undefined}
+                          className="text-primary hover:text-primary/80 underline underline-offset-4 decoration-2 transition-colors"
+                          {...props}
+                        >
+                          {children}
+                        </a>
+                      );
+                    },
                     // 自定义表格样式
                     table: ({ children, ...props }) => (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full border-collapse border border-gray-300 dark:border-gray-600" {...props}>
+                      <div className="overflow-x-auto my-6">
+                        <table className="min-w-full border-collapse border border-border rounded-lg" {...props}>
                           {children}
                         </table>
                       </div>
                     ),
                     th: ({ children, ...props }) => (
-                      <th className="border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-4 py-2 text-left" {...props}>
+                      <th className="border border-border bg-muted px-4 py-3 text-left font-semibold" {...props}>
                         {children}
                       </th>
                     ),
                     td: ({ children, ...props }) => (
-                      <td className="border border-gray-300 dark:border-gray-600 px-4 py-2" {...props}>
+                      <td className="border border-border px-4 py-3" {...props}>
                         {children}
                       </td>
                     ),
@@ -246,17 +287,17 @@ export default function BlogPostPage() {
           </Card>
 
           {/* 底部导航 */}
-          <div className="mt-8 text-center">
+          <div className="mt-8 pt-6 border-t border-border">
             <Link 
               href="/blog" 
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors group"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
               {language === 'zh' ? '返回博客列表' : 'Back to Blog List'}
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

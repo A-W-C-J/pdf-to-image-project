@@ -364,7 +364,7 @@ export default function BlogAdminPage() {
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState("")
-  const [posts, setPosts] = useState<BlogPost[]>(initialPosts)
+  const [posts, setPosts] = useState<BlogPost[]>([])
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [formData, setFormData] = useState<Partial<BlogPost>>({})
@@ -372,6 +372,34 @@ export default function BlogAdminPage() {
   const [success, setSuccess] = useState("")
 
   const t = (key: TranslationKey): string => translations[language][key]
+
+  useEffect(() => {
+    const loadArticles = () => {
+      try {
+        const storedArticles = localStorage.getItem("blogArticles")
+        if (storedArticles) {
+          const articles = JSON.parse(storedArticles)
+          setPosts(articles)
+        } else {
+          // Initialize with default posts and save to localStorage
+          setPosts(initialPosts)
+          localStorage.setItem("blogArticles", JSON.stringify(initialPosts))
+        }
+      } catch (error) {
+        console.error("Error loading articles:", error)
+        setPosts(initialPosts)
+        localStorage.setItem("blogArticles", JSON.stringify(initialPosts))
+      }
+    }
+
+    loadArticles()
+  }, [])
+
+  useEffect(() => {
+    if (posts.length > 0) {
+      localStorage.setItem("blogArticles", JSON.stringify(posts))
+    }
+  }, [posts])
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark")
@@ -407,9 +435,10 @@ export default function BlogAdminPage() {
 
     if (editingPost) {
       // Update existing post
-      setPosts(
-        posts.map((post) => (post.id === editingPost.id ? ({ ...editingPost, ...formData, slug } as BlogPost) : post)),
+      const updatedPosts = posts.map((post) =>
+        post.id === editingPost.id ? ({ ...editingPost, ...formData, slug } as BlogPost) : post,
       )
+      setPosts(updatedPosts)
       setSuccess(language === "zh" ? "文章已更新" : "Article updated")
     } else {
       // Create new post
@@ -447,7 +476,8 @@ export default function BlogAdminPage() {
 
   const handleDelete = (id: string) => {
     if (confirm(language === "zh" ? "确定要删除这篇文章吗？" : "Are you sure you want to delete this article?")) {
-      setPosts(posts.filter((post) => post.id !== id))
+      const updatedPosts = posts.filter((post) => post.id !== id)
+      setPosts(updatedPosts)
       setSuccess(language === "zh" ? "文章已删除" : "Article deleted")
       setTimeout(() => setSuccess(""), 3000)
     }

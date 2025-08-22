@@ -40,9 +40,6 @@ export default function BlogAdminPage() {
   const [aiTopic, setAiTopic] = useState("")
   const [aiLanguage, setAiLanguage] = useState("中文")
   const [isGenerating, setIsGenerating] = useState(false)
-  const [streamContent, setStreamContent] = useState("")
-  const [generationProgress, setGenerationProgress] = useState(0)
-  const [generationStatus, setGenerationStatus] = useState("")
 
   const supabase = createClient()
 
@@ -79,7 +76,7 @@ export default function BlogAdminPage() {
 
   const handleLogin = () => {
     // Simple password check - in production, use proper authentication
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "wmj141519"
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
     if (password === adminPassword) {
       setIsAuthenticated(true)
       setError("")
@@ -224,9 +221,6 @@ export default function BlogAdminPage() {
 
     setIsGenerating(true)
     setError("")
-    setStreamContent("") // 清空之前的流式内容
-    setGenerationProgress(0)
-    setGenerationStatus("正在连接AI服务...")
 
     try {
       const response = await fetch("/api/generate-blog", {
@@ -241,74 +235,21 @@ export default function BlogAdminPage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "生成失败")
+        throw new Error("生成失败")
       }
 
-      // 处理流式响应
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error("无法获取响应流")
-      }
+      const aiData = await response.json()
 
-      const decoder = new TextDecoder()
-      let buffer = ""
+      setFormData({
+        title: aiData.title,
+        excerpt: aiData.excerpt,
+        content: aiData.content,
+        tags: aiData.tags || [],
+        seo_keywords: aiData.seo_keywords || [],
+      })
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split("\n")
-        buffer = lines.pop() || "" // 保留不完整的行
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6))
-              
-              switch (data.type) {
-                case "start":
-                  setStreamContent("开始生成内容...\n")
-                  setGenerationProgress(10)
-                  setGenerationStatus("AI开始分析主题...")
-                  break
-                case "content":
-                  setStreamContent(prev => prev + data.content)
-                  // 根据内容长度估算进度
-                  const currentLength = streamContent.length + data.content.length
-                  const estimatedProgress = Math.min(90, 20 + (currentLength / 50)) // 估算进度
-                  setGenerationProgress(estimatedProgress)
-                  setGenerationStatus("正在生成内容...")
-                  break
-                case "complete":
-                  setGenerationProgress(100)
-                  setGenerationStatus("生成完成，正在解析内容...")
-                  // 更新表单字段
-                  setFormData({
-                    title: data.data.title,
-                    excerpt: data.data.excerpt,
-                    content: data.data.content,
-                    tags: data.data.tags || [],
-                    seo_keywords: data.data.seo_keywords || [],
-                  })
-                  setSuccess("AI内容生成成功！请检查并编辑内容")
-                  setTimeout(() => {
-                    setSuccess("")
-                    setStreamContent("")
-                    setGenerationProgress(0)
-                    setGenerationStatus("")
-                  }, 3000)
-                  break
-                case "error":
-                  throw new Error(data.message)
-              }
-            } catch (parseError) {
-              console.error("解析流式数据错误:", parseError)
-            }
-          }
-        }
-      }
+      setSuccess("AI内容生成成功！请检查并编辑内容")
+      setTimeout(() => setSuccess(""), 5000)
     } catch (error: any) {
       console.error("AI generation error:", error)
       setError(error.message || "AI生成失败，请稍后重试")
@@ -462,38 +403,6 @@ export default function BlogAdminPage() {
                       </>
                     )}
                   </Button>
-                  
-                  {/* 流式内容显示区域 */}
-                  {(isGenerating || streamContent) && (
-                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Loader2 className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''} text-blue-600`} />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {generationStatus || (isGenerating ? 'AI正在生成内容...' : '生成完成')}
-                        </span>
-                        {isGenerating && generationProgress > 0 && (
-                          <span className="text-xs text-gray-500 ml-auto">
-                            {Math.round(generationProgress)}%
-                          </span>
-                        )}
-                      </div>
-                      {isGenerating && generationProgress > 0 && (
-                        <div className="mb-3">
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div 
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-                              style={{ width: `${generationProgress}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      )}
-                      <div className="max-h-60 overflow-y-auto">
-                        <pre className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap font-mono">
-                          {streamContent || '等待AI响应...'}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 

@@ -24,7 +24,7 @@ interface ConvertedImage {
 }
 
 export default function PDFConverter() {
-  const [language, setLanguage] = useState<Language>("zh")
+  const [language, setLanguage] = useState<Language>("en")
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const t = (key: TranslationKey): string => translations[language][key]
 

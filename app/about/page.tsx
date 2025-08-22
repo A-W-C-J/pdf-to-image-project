@@ -10,7 +10,7 @@ import { ThemeSwitcher } from "@/components/theme-switcher"
 import { translations, type Language } from "@/lib/i18n"
 
 export default function AboutPage() {
-  const [language, setLanguage] = useState<Language>("zh")
+  const [language, setLanguage] = useState<Language>("en")
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const t = (key: string): string => translations[language][key as keyof (typeof translations)["zh"]] || key
 

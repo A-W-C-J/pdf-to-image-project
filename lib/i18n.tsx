@@ -157,16 +157,16 @@ export const translations = {
 export type TranslationKey = keyof typeof translations.zh
 
 function detectBrowserLanguage(): Language {
-  if (typeof window === "undefined") return "zh" // Default for SSR
+  if (typeof window === "undefined") return "en" // Default for SSR
 
-  const browserLang = navigator.language || navigator.languages?.[0] || "zh"
+  const browserLang = navigator.language || navigator.languages?.[0] || "en"
 
   // Check if browser language starts with supported language codes
   if (browserLang.startsWith("zh")) return "zh"
   if (browserLang.startsWith("en")) return "en"
 
   // Default fallback
-  return "zh"
+  return "en"
 }
 
 // Language Context

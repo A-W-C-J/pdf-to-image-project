@@ -34,7 +34,7 @@ interface BlogPost {
 
 export default function BlogPostPage() {
   const params = useParams();
-  const [language, setLanguage] = useState<Language>('zh');
+  const [language, setLanguage] = useState<Language>('en');
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

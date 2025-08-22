@@ -31,7 +31,7 @@ interface BlogPost {
 // 博客数据现在从 Supabase 数据库加载
 
 export default function BlogPage() {
-  const [language, setLanguage] = useState<Language>("zh")
+  const [language, setLanguage] = useState<Language>("en")
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [searchTerm, setSearchTerm] = useState("")
   const [filteredPosts, setFilteredPosts] = useState<BlogPost[]>([])

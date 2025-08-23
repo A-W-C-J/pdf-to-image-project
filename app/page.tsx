@@ -358,7 +358,9 @@ export default function PDFConverter() {
       const newEngine = await webllm.CreateMLCEngine(selectedModel, {
         initProgressCallback: (report: webllm.InitProgressReport) => {
           setStatus(`${t("modelLoading")} ${Math.round(report.progress * 100)}%`)
-        }
+        },
+        context_window_size: 8192,
+        sliding_window_size: 4096
       })
       
       setEngine(newEngine)
@@ -384,11 +386,19 @@ export default function PDFConverter() {
       const llmEngine = await initializeWebLLM()
       
       // 根据用户选择的语言和长度构建提示词
-      const languagePrompt = summaryOptions.language === 'zh' ? '请用中文' : 'Please respond in English'
+      const languagePrompt = summaryOptions.language === 'zh' ? '请用中文' : 
+                             summaryOptions.language === 'en' ? 'Please respond in English' : 
+                             '请根据文档内容自动选择合适的语言'
       const lengthPrompt = {
-        'short': summaryOptions.language === 'zh' ? '简短地（100-200字）' : 'briefly (100-200 words)',
-        'medium': summaryOptions.language === 'zh' ? '中等详细程度（300-500字）' : 'in moderate detail (300-500 words)',
-        'long': summaryOptions.language === 'zh' ? '详细地（500-800字）' : 'in detail (500-800 words)'
+        'short': summaryOptions.language === 'zh' ? '简短地（100-200字）' : 
+                 summaryOptions.language === 'en' ? 'briefly (100-200 words)' : 
+                 '简短地总结（100-200字）',
+        'medium': summaryOptions.language === 'zh' ? '中等详细程度（300-500字）' : 
+                  summaryOptions.language === 'en' ? 'in moderate detail (300-500 words)' : 
+                  '中等详细程度地总结（300-500字）',
+        'long': summaryOptions.language === 'zh' ? '详细地（500-800字）' : 
+                summaryOptions.language === 'en' ? 'in detail (500-800 words)' : 
+                '详细地总结（500-800字）'
       }[summaryOptions.length]
       
       const prompt = `${languagePrompt}${lengthPrompt}总结以下PDF文档的主要内容。请提取关键信息、主要观点和重要结论：\n\n${fullText}`

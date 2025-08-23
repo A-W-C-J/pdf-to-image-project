@@ -45,13 +45,6 @@ export function SEOHead() {
       <meta name="robots" content="index, follow" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-      {/* Language and Canonical */}
-      <html lang={language} />
-      <link rel="canonical" href={seo.canonicalUrl} />
-      <link rel="alternate" hrefLang="zh" href="https://pdf-converter.vercel.app/zh" />
-      <link rel="alternate" hrefLang="en" href="https://pdf-converter.vercel.app/en" />
-      <link rel="alternate" hrefLang="x-default" href="https://pdf-converter.vercel.app/" />
-
       {/* Open Graph Meta Tags */}
       <meta property="og:type" content="website" />
       <meta property="og:title" content={seo.ogTitle} />

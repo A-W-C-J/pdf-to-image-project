@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     description: "Technical insights on advanced PDF processing, batch conversion, OCR text extraction, and security best practices.",
   },
   alternates: {
-    canonical: "https://pdf-converter.vercel.app/blog",
+    canonical: "https://www.pdf2img.top/blog",
     types: {
       "application/rss+xml": [{ url: "/blog/rss.xml", title: "PDF Tech Blog RSS Feed" }],
     },
@@ -60,7 +60,7 @@ export default function BlogLayout({
             "@type": "Blog",
             name: "PDF Processing Tech Blog",
             description: "Technical blog about PDF processing, conversion, security, and best practices",
-            url: "https://pdf-converter.vercel.app/blog",
+            url: "https://www.pdf2img.top/blog",
             publisher: {
               "@type": "Organization",
               name: "PDF Converter Tool",
@@ -68,7 +68,7 @@ export default function BlogLayout({
             },
             mainEntityOfPage: {
               "@type": "WebPage",
-              "@id": "https://pdf-converter.vercel.app/blog",
+              "@id": "https://www.pdf2img.top/blog",
             },
           }),
         }}

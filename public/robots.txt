@@ -6,8 +6,8 @@ Disallow: /blog/admin
 Disallow: /api/
 
 # Sitemap location
-Sitemap: https://pdf-converter.vercel.app/sitemap.xml
-Sitemap: https://pdf-converter.vercel.app/blog/sitemap.xml
+Sitemap: https://www.pdf2img.top/sitemap.xml
+Sitemap: https://www.pdf2img.top/blog/sitemap.xml
 
 # Crawl-delay for better server performance
 Crawl-delay: 1

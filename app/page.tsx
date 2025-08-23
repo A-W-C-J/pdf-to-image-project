@@ -17,6 +17,8 @@ import { ThemeSwitcher } from "@/components/theme-switcher"
 import { translations, type Language, type TranslationKey } from "@/lib/i18n"
 import GIF from "gif.js"
 import { createWorker } from "tesseract.js"
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
+import * as webllm from "@mlc-ai/web-llm"
 //firebase
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
@@ -55,6 +57,16 @@ interface OcrResult {
   isExtracting: boolean
   isCompleted: boolean
   fileName?: string // 添加文件名字段用于批量处理
+  words?: Array<{
+    text: string
+    bbox: {
+      x0: number
+      y0: number
+      x1: number
+      y1: number
+    }
+    confidence: number
+  }> // 添加文字坐标信息用于可搜索PDF
 }
 
 // 批量处理相关接口
@@ -210,6 +222,30 @@ export default function PDFConverter() {
   const [ocrLanguage, setOcrLanguage] = useState<string>("chi_sim+eng")
   const [showOcrResults, setShowOcrResults] = useState<{ [key: string]: boolean }>({})
 
+  // PDF相关状态
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null)
+  const [pdfOptions, setPdfOptions] = useState({
+    addBookmarks: true,
+    preserveQuality: true,
+    ocrConfidenceThreshold: 30,
+    fontSizeMultiplier: 1.0,
+    pageMargin: 50,
+    textLayerOpacity: 0.0,
+    enableTextSelection: true
+  })
+
+  // AI总结相关状态
+  const [enableSummary, setEnableSummary] = useState(false)
+  const [summaryOptions, setSummaryOptions] = useState({
+    language: 'auto',
+    length: 'medium'
+  })
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
+  const [summaryResult, setSummaryResult] = useState<string>('')
+  const [isModelLoading, setIsModelLoading] = useState(false)
+  const [modelLoaded, setModelLoaded] = useState(false)
+
   // 图像质量检测函数
   const analyzeImageQuality = (imageData: ImageData) => {
     const data = imageData.data
@@ -306,6 +342,135 @@ export default function PDFConverter() {
     })
   }
 
+  // WebLLM引擎实例
+  const [engine, setEngine] = useState<webllm.MLCEngineInterface | null>(null)
+
+  // 初始化WebLLM引擎
+  const initializeWebLLM = async () => {
+    if (engine) return engine
+    
+    try {
+      setIsModelLoading(true)
+      setStatus(t("modelLoading"))
+      
+      const selectedModel = "Llama-3.2-3B-Instruct-q4f32_1-MLC"
+      
+      const newEngine = await webllm.CreateMLCEngine(selectedModel, {
+        initProgressCallback: (report: webllm.InitProgressReport) => {
+          setStatus(`${t("modelLoading")} ${Math.round(report.progress * 100)}%`)
+        }
+      })
+      
+      setEngine(newEngine)
+      setModelLoaded(true)
+      setIsModelLoading(false)
+      setStatus(t("modelLoaded"))
+      
+      return newEngine
+    } catch (error) {
+      console.error('WebLLM initialization failed:', error)
+      setIsModelLoading(false)
+      setError(`模型加载失败: ${error instanceof Error ? error.message : String(error)}`)
+      throw error
+    }
+  }
+
+  // 生成文本总结
+  const generateSummary = async (fullText: string): Promise<string> => {
+    try {
+      setIsGeneratingSummary(true)
+      setStatus(t("generatingSummary"))
+      
+      const llmEngine = await initializeWebLLM()
+      
+      // 根据用户选择的语言和长度构建提示词
+      const languagePrompt = summaryOptions.language === 'zh' ? '请用中文' : 'Please respond in English'
+      const lengthPrompt = {
+        'short': summaryOptions.language === 'zh' ? '简短地（100-200字）' : 'briefly (100-200 words)',
+        'medium': summaryOptions.language === 'zh' ? '中等详细程度（300-500字）' : 'in moderate detail (300-500 words)',
+        'long': summaryOptions.language === 'zh' ? '详细地（500-800字）' : 'in detail (500-800 words)'
+      }[summaryOptions.length]
+      
+      const prompt = `${languagePrompt}${lengthPrompt}总结以下PDF文档的主要内容。请提取关键信息、主要观点和重要结论：\n\n${fullText}`
+      
+      const response = await llmEngine.chat.completions.create({
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      })
+      
+      const summary = response.choices[0]?.message?.content || '总结生成失败'
+      setSummaryResult(summary)
+      setStatus(t("summaryGenerated"))
+      
+      return summary
+    } catch (error) {
+      console.error('Summary generation failed:', error)
+      setError(`总结生成失败: ${error instanceof Error ? error.message : String(error)}`)
+      throw error
+    } finally {
+      setIsGeneratingSummary(false)
+    }
+  }
+
+  // 全文OCR提取函数（用于AI总结）
+  const extractFullTextFromImages = async (images: ConvertedImage[]): Promise<string> => {
+    let fullText = ''
+    
+    for (const image of images) {
+      try {
+        setStatus(`${t("extractingText")} ${image.pageNumber}/${images.length}...`)
+        
+        // 对图像进行预处理以提升识别精度
+        const preprocessedImageUrl = await preprocessImageForOCR(image.dataUrl)
+        
+        // 创建OCR工作器并配置参数
+        const worker = await createWorker(ocrLanguage)
+        
+        // 根据语言和图像特征动态设置OCR参数
+        const ocrParams: { [key: string]: string } = {
+          tessedit_ocr_engine_mode: '1', // 使用LSTM OCR引擎
+          preserve_interword_spaces: '1', // 保留单词间空格
+        }
+        
+        // 根据语言优化参数
+        if (ocrLanguage === 'chi_sim' || ocrLanguage === 'chi_tra') {
+          // 中文优化
+          ocrParams.tessedit_pageseg_mode = '6' // 单一文本块
+          ocrParams.tessedit_char_whitelist = '' // 允许所有中文字符
+        } else if (ocrLanguage === 'eng') {
+          // 英文优化
+          ocrParams.tessedit_pageseg_mode = '1' // 自动页面分割
+          ocrParams.tessedit_char_whitelist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?;:"\'\-()[]{}/@#$%^&*+=<>|\\~`'
+        } else {
+          // 自动检测模式
+          ocrParams.tessedit_pageseg_mode = '3' // 完全自动页面分割
+        }
+        
+        // 设置OCR引擎参数
+        await worker.setParameters(ocrParams)
+        
+        const { data: { text } } = await worker.recognize(preprocessedImageUrl) as any
+        await worker.terminate()
+        
+        if (text.trim()) {
+          fullText += `\n\n=== 第${image.pageNumber}页 ===\n${text.trim()}`
+        }
+        
+      } catch (error) {
+        console.error(`OCR extraction failed for page ${image.pageNumber}:`, error)
+        // 继续处理下一页，不中断整个流程
+      }
+    }
+    
+    return fullText.trim()
+  }
+
   // OCR文字提取函数
   const extractTextFromImage = async (pageNumber: number, imageDataUrl: string, batchFileId?: string) => {
     try {
@@ -348,12 +513,39 @@ export default function PDFConverter() {
       // 设置OCR引擎参数
       await worker.setParameters(ocrParams)
       
-      const { data: { text } } = await worker.recognize(preprocessedImageUrl)
+      const { data: { text, words } } = await worker.recognize(preprocessedImageUrl) as any
       await worker.terminate()
+
+      // 处理文字坐标信息
+      const wordsWithCoords = words?.map((word: {
+        text: string
+        bbox: {
+          x0: number
+          y0: number
+          x1: number
+          y1: number
+        }
+        confidence: number
+      }) => ({
+        text: word.text,
+        bbox: {
+          x0: word.bbox.x0,
+          y0: word.bbox.y0,
+          x1: word.bbox.x1,
+          y1: word.bbox.y1
+        },
+        confidence: word.confidence
+      })) || []
 
       // 更新提取结果
       setOcrResults(prev => 
-        prev.map(r => r.pageNumber === pageNumber ? { ...r, text: text.trim(), isExtracting: false, isCompleted: true } : r)
+        prev.map(r => r.pageNumber === pageNumber ? { 
+          ...r, 
+          text: text.trim(), 
+          words: wordsWithCoords,
+          isExtracting: false, 
+          isCompleted: true 
+        } : r)
       )
 
       setStatus(t("textExtracted"))
@@ -402,6 +594,98 @@ export default function PDFConverter() {
       ...prev,
       [key]: !prev[key]
     }))
+  }
+
+  // 生成可搜索PDF
+  const generateSearchablePdf = async () => {
+    if (convertedImages.length === 0) {
+      setError(t("noImagesAvailable"))
+      return
+    }
+
+    setIsGeneratingPdf(true)
+    setStatus(t("generatingPdf"))
+
+    try {
+      // 创建新的PDF文档
+      const pdfDoc = await PDFDocument.create()
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+
+      for (const image of convertedImages) {
+        // 将图像数据转换为Uint8Array
+        const imageBytes = await fetch(image.dataUrl).then(res => res.arrayBuffer())
+        let pdfImage
+        
+        // 根据图像类型选择合适的嵌入方法
+        if (image.type === 'image/jpeg' || image.dataUrl.includes('data:image/jpeg')) {
+          pdfImage = await pdfDoc.embedJpg(new Uint8Array(imageBytes))
+        } else {
+          pdfImage = await pdfDoc.embedPng(new Uint8Array(imageBytes))
+        }
+        
+        // 获取图像尺寸
+        const imageDims = pdfImage.scale(1)
+        
+        // 创建新页面
+        const page = pdfDoc.addPage([imageDims.width, imageDims.height])
+        
+        // 绘制图像
+        page.drawImage(pdfImage, {
+          x: 0,
+          y: 0,
+          width: imageDims.width,
+          height: imageDims.height,
+        })
+
+        // 添加文字层（使用配置的置信度阈值）
+        const ocrResult = ocrResults.find(r => r.pageNumber === image.pageNumber)
+        if (ocrResult?.words && ocrResult.words.length > 0) {
+          for (const word of ocrResult.words) {
+            if (word.confidence > pdfOptions.ocrConfidenceThreshold) {
+              // 计算文字位置和大小（考虑页面边距）
+              const x = word.bbox.x0 + pdfOptions.pageMargin
+              const y = imageDims.height - word.bbox.y1 + pdfOptions.pageMargin // PDF坐标系Y轴翻转
+              const width = word.bbox.x1 - word.bbox.x0
+              const height = word.bbox.y1 - word.bbox.y0
+              
+              // 计算合适的字体大小（使用配置的倍数）
+              const baseFontSize = Math.max(8, Math.min(height * 0.8, 20))
+              const fontSize = baseFontSize * pdfOptions.fontSizeMultiplier
+              
+              // 添加文字层（透明度可配置）
+              page.drawText(word.text, {
+                x: x,
+                y: y,
+                size: fontSize,
+                font: font,
+                color: rgb(0, 0, 0),
+                opacity: pdfOptions.enableTextSelection ? pdfOptions.textLayerOpacity : 0,
+              })
+            }
+          }
+        }
+
+        // 添加书签（如果启用）
+        if (pdfOptions.addBookmarks) {
+          // 这里可以添加书签逻辑
+        }
+      }
+
+      // 生成PDF字节数组
+      const pdfBytes = await pdfDoc.save()
+      
+      // 创建下载链接
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      setGeneratedPdfUrl(url)
+      
+      setStatus(t("pdfGenerated"))
+    } catch (error) {
+      console.error('PDF generation failed:', error)
+      setError(t("pdfGenerationFailed"))
+    } finally {
+      setIsGeneratingPdf(false)
+    }
   }
 
   const applyWatermark = (canvas: HTMLCanvasElement, text: string, position: string, opacity: number) => {
@@ -1172,6 +1456,24 @@ export default function PDFConverter() {
       }
       
       setProgress(100)
+      
+      // 如果启用了AI总结功能，执行全文OCR和总结
+      if (enableSummary && images.length > 0) {
+        try {
+          setStatus(t("extractingFullText"))
+          const fullText = await extractFullTextFromImages(images)
+          
+          if (fullText.trim()) {
+            await generateSummary(fullText)
+          } else {
+            setError('未能从PDF中提取到文本内容，无法生成总结')
+          }
+        } catch (summaryError) {
+          console.error('Summary generation error:', summaryError)
+          setError(`总结生成失败: ${summaryError instanceof Error ? summaryError.message : String(summaryError)}`)
+        }
+      }
+      
     } catch (err) {
       console.error("PDF转换错误:", err)
       if (err instanceof Error && err.message.includes("password")) {
@@ -1181,6 +1483,7 @@ export default function PDFConverter() {
         setError(`${t("convertFailed")}: ${err instanceof Error ? err.message : t("unknownError")}`)
       }
     } finally {
+      setIsGeneratingSummary(false)
       setIsConverting(false)
     }
   }
@@ -1604,6 +1907,7 @@ export default function PDFConverter() {
                     <SelectItem value="image/tiff">{t("tiffFormat")}</SelectItem>
                     <SelectItem value="image/gif">{t("gifFormat")}</SelectItem>
                     <SelectItem value="image/bmp">{t("bmpFormat")}</SelectItem>
+                    <SelectItem value="application/pdf">{t("searchablePdfFormat")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1705,6 +2009,174 @@ export default function PDFConverter() {
                 </div>
               )}
             </div>
+
+            {/* PDF高级选项 */}
+            {format === 'application/pdf' && (
+              <div className="space-y-4 border-t pt-4">
+                <h4 className="text-sm font-medium">{t("pdfAdvancedOptions")}</h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ocr-confidence">
+                      {t("ocrConfidenceThreshold")} ({pdfOptions.ocrConfidenceThreshold}%)
+                    </Label>
+                    <Input
+                      id="ocr-confidence"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={pdfOptions.ocrConfidenceThreshold.toString()}
+                      onChange={(e) => setPdfOptions(prev => ({
+                        ...prev,
+                        ocrConfidenceThreshold: Number.parseInt(e.target.value) || 30
+                      }))}
+                      disabled={isConverting}
+                    />
+                    <p className="text-xs text-muted-foreground">{t("ocrConfidenceDesc")}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="font-size">
+                      {t("fontSizeMultiplier")} ({pdfOptions.fontSizeMultiplier.toFixed(1)}x)
+                    </Label>
+                    <Input
+                      id="font-size"
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={pdfOptions.fontSizeMultiplier.toString()}
+                      onChange={(e) => setPdfOptions(prev => ({
+                        ...prev,
+                        fontSizeMultiplier: Number.parseFloat(e.target.value) || 1.0
+                      }))}
+                      disabled={isConverting}
+                    />
+                    <p className="text-xs text-muted-foreground">{t("fontSizeDesc")}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="page-margin">
+                      {t("pageMargin")} ({pdfOptions.pageMargin}px)
+                    </Label>
+                    <Input
+                      id="page-margin"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="10"
+                      value={pdfOptions.pageMargin.toString()}
+                      onChange={(e) => setPdfOptions(prev => ({
+                        ...prev,
+                        pageMargin: Number.parseInt(e.target.value) || 50
+                      }))}
+                      disabled={isConverting}
+                    />
+                    <p className="text-xs text-muted-foreground">{t("pageMarginDesc")}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="text-opacity">
+                      {t("textLayerOpacity")} ({Math.round(pdfOptions.textLayerOpacity * 100)}%)
+                    </Label>
+                    <Input
+                      id="text-opacity"
+                      type="range"
+                      min="0.0"
+                      max="1.0"
+                      step="0.1"
+                      value={pdfOptions.textLayerOpacity.toString()}
+                      onChange={(e) => setPdfOptions(prev => ({
+                        ...prev,
+                        textLayerOpacity: Number.parseFloat(e.target.value) || 0.0
+                      }))}
+                      disabled={isConverting}
+                    />
+                    <p className="text-xs text-muted-foreground">{t("textLayerDesc")}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="enable-text-selection"
+                    checked={pdfOptions.enableTextSelection}
+                    onCheckedChange={(checked) => setPdfOptions(prev => ({
+                      ...prev,
+                      enableTextSelection: checked as boolean
+                    }))}
+                    disabled={isConverting}
+                  />
+                  <Label htmlFor="enable-text-selection" className="text-sm font-medium">
+                    {t("enableTextSelection")}
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">{t("textSelectionDesc")}</p>
+
+                {/* AI总结功能 */}
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="enable-summary"
+                      checked={enableSummary}
+                      onCheckedChange={(checked) => setEnableSummary(checked as boolean)}
+                      disabled={isConverting || isGeneratingSummary}
+                    />
+                    <Label htmlFor="enable-summary" className="text-sm font-medium">
+                      {t("enableAISummary")}
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground pl-6">{t("aiSummaryDesc")}</p>
+
+                  {enableSummary && (
+                    <div className="pl-6 space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="summary-language">{t("summaryLanguage")}</Label>
+                          <Select
+                            value={summaryOptions.language}
+                            onValueChange={(value) => setSummaryOptions(prev => ({ ...prev, language: value }))}
+                            disabled={isConverting || isGeneratingSummary}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="zh">中文</SelectItem>
+                              <SelectItem value="en">English</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="summary-length">{t("summaryLength")}</Label>
+                          <Select
+                            value={summaryOptions.length}
+                            onValueChange={(value) => setSummaryOptions(prev => ({ ...prev, length: value }))}
+                            disabled={isConverting || isGeneratingSummary}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="short">{t("summaryShort")}</SelectItem>
+                              <SelectItem value="medium">{t("summaryMedium")}</SelectItem>
+                              <SelectItem value="long">{t("summaryLong")}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {isModelLoading && (
+                        <div className="text-sm text-muted-foreground">
+                          {t("modelLoading")}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2">
               <Button
@@ -1818,6 +2290,59 @@ export default function PDFConverter() {
           </Card>
         )}
 
+        {/* AI总结结果显示 */}
+        {summaryResult && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" />
+                  {t("summaryResult")}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => {
+                      navigator.clipboard.writeText(summaryResult)
+                      setStatus(t("summaryCopied"))
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Copy className="h-4 w-4" />
+                    {t("copySummary")}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const blob = new Blob([summaryResult], { type: 'text/plain;charset=utf-8' })
+                      const url = URL.createObjectURL(blob)
+                      const link = document.createElement('a')
+                      link.href = url
+                      link.download = 'pdf-summary.txt'
+                      link.click()
+                      URL.revokeObjectURL(url)
+                      setStatus(t("summaryDownloaded"))
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    {t("downloadSummary")}
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-muted/50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                <pre className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {summaryResult}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {(convertedImages.length > 0 || (isBatchMode && batchFiles.some(f => f.convertedImages.length > 0))) && (
           <Card>
             <CardHeader>
@@ -1830,10 +2355,38 @@ export default function PDFConverter() {
                     `${t("convertResult")} (${convertedImages.length} ${t("images")})`
                   )}
                 </span>
-                <Button onClick={downloadAll} className="flex items-center gap-2">
-                  <Download className="h-4 w-4" />
-                  {t("downloadAll")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button onClick={downloadAll} className="flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    {t("downloadAll")}
+                  </Button>
+                  {format === "application/pdf" && (
+                    <Button 
+                      onClick={generateSearchablePdf} 
+                      disabled={isGeneratingPdf || ocrResults.length === 0}
+                      className="flex items-center gap-2"
+                      variant="outline"
+                    >
+                      <FileText className="h-4 w-4" />
+                      {isGeneratingPdf ? t("generatingPdf") : t("downloadSearchablePdf")}
+                    </Button>
+                  )}
+                  {generatedPdfUrl && (
+                    <Button 
+                      onClick={() => {
+                        const link = document.createElement('a')
+                        link.href = generatedPdfUrl
+                        link.download = 'searchable-document.pdf'
+                        link.click()
+                      }}
+                      className="flex items-center gap-2"
+                      variant="default"
+                    >
+                      <Download className="h-4 w-4" />
+                      {t("previewPdf")}
+                    </Button>
+                  )}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>

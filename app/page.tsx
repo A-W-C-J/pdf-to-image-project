@@ -2123,16 +2123,17 @@ export default function PDFConverter() {
                       disabled={isConverting || isGeneratingSummary}
                     />
                     <Label htmlFor="enable-summary" className="text-sm font-medium">
-                      {t("enableAISummary")}
+                      {t("enableSummary")}
                     </Label>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-6">{t("aiSummaryDesc")}</p>
+                  <p className="text-xs text-muted-foreground pl-6">{t("enableSummaryDesc")}</p>
 
                   {enableSummary && (
                     <div className="pl-6 space-y-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="summary-language">{t("summaryLanguage")}</Label>
+                          <p className="text-sm text-muted-foreground">{t("summaryLanguageDesc")}</p>
                           <Select
                             value={summaryOptions.language}
                             onValueChange={(value) => setSummaryOptions(prev => ({ ...prev, language: value }))}
@@ -2142,14 +2143,16 @@ export default function PDFConverter() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="zh">中文</SelectItem>
-                              <SelectItem value="en">English</SelectItem>
+                              <SelectItem value="auto">{t("auto")}</SelectItem>
+                              <SelectItem value="zh">{t("chinese")}</SelectItem>
+                              <SelectItem value="en">{t("english")}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
 
                         <div className="space-y-2">
                           <Label htmlFor="summary-length">{t("summaryLength")}</Label>
+                          <p className="text-sm text-muted-foreground">{t("summaryLengthDesc")}</p>
                           <Select
                             value={summaryOptions.length}
                             onValueChange={(value) => setSummaryOptions(prev => ({ ...prev, length: value }))}

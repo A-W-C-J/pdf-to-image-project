@@ -120,7 +120,7 @@ importers:
         specifier: 8.5.1
         version: 8.5.1(react@19.0.0)
       firebase:
-        specifier: ^12.1.0
+        specifier: latest
         version: 12.1.0
       geist:
         specifier: latest

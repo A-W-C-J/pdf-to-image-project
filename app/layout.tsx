@@ -6,20 +6,27 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: {
-    default: "PDF to Image Converter - Free Online PDF Converter Tool",
+    default: "PDF to Image Converter - Free Online PDF Converter Tool with Batch Processing",
     template: "%s | PDF Converter",
   },
   description:
-    "Free online PDF to image converter tool. Batch convert PDF to PNG/JPEG format with frontend processing for privacy protection, watermark support and custom scaling.",
+    "Advanced online PDF to image converter with batch processing, OCR text extraction, page merging, and watermark support. Convert multiple PDFs to PNG/JPEG/GIF formats with privacy protection and high-quality output.",
   keywords: [
     "PDF to image",
     "PDF converter",
     "PDF to PNG",
     "PDF to JPEG",
+    "batch PDF conversion",
+    "OCR text extraction",
+    "PDF page merge",
     "online converter",
-    "batch conversion",
+    "batch processing",
+    "watermark support",
     "free tool",
     "privacy protection",
+    "PDF to GIF",
+    "multiple PDF converter",
+    "PDF text recognition",
   ],
   authors: [{ name: "PDF Converter Tool" }],
   creator: "PDF Converter Tool",
@@ -39,24 +46,20 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     alternateLocale: ["zh_CN"],
-    url: "https://pdf-converter.vercel.app",
+    url: "https://www.pdf2img.top",
     siteName: "PDF to Image Converter",
     title: "PDF to Image Converter - Secure & Fast Online Tool",
     description:
-      "Professional PDF to image converter with batch conversion, watermark addition, and multiple format output. Frontend processing protects your file privacy.",
+      "Professional PDF to image converter with batch conversion, OCR text extraction, page merging, watermark addition, and multiple format output. Frontend processing protects your file privacy.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PDF to Image Converter - Free Online Tool",
+    title: "PDF to Image Converter - Advanced Batch Processing Tool",
     description:
-      "Quickly convert PDF to high-quality images, supports PNG/JPEG formats, batch processing, privacy secure.",
+      "Convert PDF to high-quality images with batch processing, OCR text extraction, page merging, watermark support, and privacy protection. No file upload required.",
   },
   alternates: {
-    canonical: "https://pdf-converter.vercel.app",
-    languages: {
-      en: "https://pdf-converter.vercel.app/en",
-      zh: "https://pdf-converter.vercel.app/zh",
-    },
+    canonical: "https://www.pdf2img.top",
   },
   generator: "Next.js",
 }
@@ -88,7 +91,7 @@ html {
               name: "PDF to Image Converter",
               description:
                 "Free online PDF to image converter tool that supports batch conversion of PDF documents to PNG or JPEG image files.",
-              url: "https://pdf-converter.vercel.app",
+              url: "https://www.pdf2img.top",
               applicationCategory: "UtilityApplication",
               operatingSystem: "Any",
               offers: {

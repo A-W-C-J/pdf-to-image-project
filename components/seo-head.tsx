@@ -23,10 +23,16 @@ export function SEOHead() {
     featureList: [
       "PDF to PNG conversion",
       "PDF to JPEG conversion",
+      "PDF to GIF conversion",
       "Batch processing",
+      "OCR text extraction",
+      "PDF page merging",
       "Watermark support",
       "Privacy protection",
       "No server upload required",
+      "Multiple file processing",
+      "Text recognition",
+      "Image quality optimization",
     ],
   }
 

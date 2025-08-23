@@ -17,7 +17,28 @@ import { ThemeSwitcher } from "@/components/theme-switcher"
 import { translations, type Language, type TranslationKey } from "@/lib/i18n"
 import GIF from "gif.js"
 import { createWorker } from "tesseract.js"
+//firebase
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBOhm3FTeL13CQ51CKavAz6GDh_LST2arA",
+  authDomain: "pdf2img-84024.firebaseapp.com",
+  projectId: "pdf2img-84024",
+  storageBucket: "pdf2img-84024.firebasestorage.app",
+  messagingSenderId: "473990739308",
+  appId: "1:473990739308:web:00aa487ff67cafd923ef49",
+  measurementId: "G-KR9VEZNCG0"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app); 
 interface ConvertedImage {
   dataUrl: string
   pageNumber: number
@@ -184,7 +205,7 @@ export default function PDFConverter() {
   // OCR相关状态
   const [ocrResults, setOcrResults] = useState<OcrResult[]>([])
   const [ocrLanguage, setOcrLanguage] = useState<string>("chi_sim+eng")
-  const [showOcrResults, setShowOcrResults] = useState<{ [key: number]: boolean }>({})
+  const [showOcrResults, setShowOcrResults] = useState<{ [key: string]: boolean }>({})
 
   // 图像质量检测函数
   const analyzeImageQuality = (imageData: ImageData) => {
@@ -283,7 +304,7 @@ export default function PDFConverter() {
   }
 
   // OCR文字提取函数
-  const extractTextFromImage = async (pageNumber: number, imageDataUrl: string) => {
+  const extractTextFromImage = async (pageNumber: number, imageDataUrl: string, batchFileId?: string) => {
     try {
       // 更新状态为正在提取
       setOcrResults(prev => {
@@ -336,7 +357,8 @@ export default function PDFConverter() {
       
       // 3秒后自动显示提取结果
       setTimeout(() => {
-        setShowOcrResults(prev => ({ ...prev, [pageNumber]: true }))
+        const key = batchFileId ? `${batchFileId}-${pageNumber}` : pageNumber
+        setShowOcrResults(prev => ({ ...prev, [key]: true }))
       }, 500)
       
     } catch (error) {
@@ -372,10 +394,10 @@ export default function PDFConverter() {
   }
 
   // 切换OCR结果显示
-  const toggleOcrResult = (pageNumber: number) => {
+  const toggleOcrResult = (key: string | number) => {
     setShowOcrResults(prev => ({
       ...prev,
-      [pageNumber]: !prev[pageNumber]
+      [key]: !prev[key]
     }))
   }
 
@@ -474,7 +496,7 @@ export default function PDFConverter() {
           }
         }
         
-        const onImageError = (error: Event) => {
+        const onImageError = (error: string | Event) => {
           if (hasError) return
           hasError = true
           reject(new Error('Failed to load image for merging'))
@@ -623,7 +645,7 @@ export default function PDFConverter() {
       const pdfFiles = Array.from(files).filter(file => file.type === "application/pdf")
       
       if (pdfFiles.length === 0) {
-        setError(t("invalidFileType"))
+        setError(t("selectValidPdf"))
         return
       }
       
@@ -774,7 +796,7 @@ export default function PDFConverter() {
       setStatus(language === "zh" ? "批量处理完成" : "Batch processing completed")
       
     } catch (error) {
-      setError(`${t("conversionFailed")}: ${error instanceof Error ? error.message : t("unknownError")}`)
+      setError(`${t("convertFailed")}: ${error instanceof Error ? error.message : t("unknownError")}`)
     } finally {
       setIsConverting(false)
     }
@@ -860,7 +882,7 @@ export default function PDFConverter() {
       }
       
     } catch (error) {
-      setError(`${t("conversionFailed")}: ${error instanceof Error ? error.message : t("unknownError")}`)
+      setError(`${t("convertFailed")}: ${error instanceof Error ? error.message : t("unknownError")}`)
     } finally {
       setIsConverting(false)
       setBatchProgress(prev => ({
@@ -942,7 +964,7 @@ export default function PDFConverter() {
         currentFile: ''
       }))
       
-      setError(`${t("conversionFailed")}: ${error instanceof Error ? error.message : t("unknownError")}`)
+      setError(`${t("convertFailed")}: ${error instanceof Error ? error.message : t("unknownError")}`)
     } finally {
       setIsConverting(false)
     }
@@ -980,6 +1002,7 @@ export default function PDFConverter() {
       const renderContext = {
         canvasContext: context,
         viewport: viewport,
+        canvas: canvas,
       }
 
       await page.render(renderContext).promise
@@ -1027,7 +1050,7 @@ export default function PDFConverter() {
     setStatus(t("loadingPdfjs"))
     // 重置OCR相关状态
     setOcrResults([])
-    setShowOcrResults(false)
+    setShowOcrResults({})
 
     try {
       const pdfjsLib = await import("pdfjs-dist")
@@ -1094,6 +1117,7 @@ export default function PDFConverter() {
         const renderContext = {
           canvasContext: context,
           viewport: viewport,
+          canvas: canvas,
         }
 
         await page.render(renderContext).promise
@@ -1444,7 +1468,7 @@ export default function PDFConverter() {
                         setSelectedFile(null)
                         setConvertedImages([])
                         setOcrResults([])
-                        setShowOcrResults(false)
+                        setShowOcrResults({})
                       }
                       // 清理通用状态
                       setError("")
@@ -1899,7 +1923,7 @@ export default function PDFConverter() {
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => copyToClipboard(ocrResult.text)}
+                                            onClick={() => copyTextToClipboard(ocrResult.text)}
                                             className="h-6 px-2"
                                           >
                                             <Copy className="h-3 w-3" />
@@ -2006,7 +2030,7 @@ export default function PDFConverter() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => copyToClipboard(ocrResult.text)}
+                                    onClick={() => copyTextToClipboard(ocrResult.text)}
                                     className="h-6 px-2"
                                   >
                                     <Copy className="h-3 w-3" />

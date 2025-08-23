@@ -231,7 +231,7 @@ export default function BlogPostPage() {
                   rehypePlugins={[rehypeHighlight, rehypeRaw]}
                   components={{
                     // 自定义代码块样式
-                    code: ({ node, inline, className, children, ...props }) => {
+                    code: ({ node, inline, className, children, ...props }: any) => {
                       const match = /language-(\w+)/.exec(className || '');
                       return !inline && match ? (
                         <pre className={className} {...props}>
@@ -244,7 +244,7 @@ export default function BlogPostPage() {
                       );
                     },
                     // 自定义链接样式
-                    a: ({ children, href, ...props }) => {
+                    a: ({ children, href, ...props }: any) => {
                       // 检查是否为外部链接
                       const isExternal = href && (href.startsWith('http') || href.startsWith('https'));
                       

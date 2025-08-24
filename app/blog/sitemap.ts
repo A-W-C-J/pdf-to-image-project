@@ -52,14 +52,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(post.updated_at || post.created_at),
     changeFrequency: "monthly" as const,
     priority: 0.8,
+    alternates: {
+      languages: {
+        en: `https://www.pdf2img.top/en/blog/${post.slug}`,
+        zh: `https://www.pdf2img.top/zh/blog/${post.slug}`,
+      },
+    },
   }))
 
   return [
     {
       url: "https://www.pdf2img.top/blog",
       lastModified: new Date(),
-      changeFrequency: "weekly",
+      changeFrequency: "daily",
       priority: 0.9,
+      alternates: {
+        languages: {
+          en: "https://www.pdf2img.top/en/blog",
+          zh: "https://www.pdf2img.top/zh/blog",
+        },
+      },
     },
     ...blogPostEntries,
   ]

@@ -21,7 +21,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/about`,
       lastModified: currentDate,
       changeFrequency: "monthly",
-      priority: 0.8,
+      priority: 0.7,
       alternates: {
         languages: {
           en: `${baseUrl}/en/about`,
@@ -32,7 +32,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     {
       url: `${baseUrl}/blog`,
       lastModified: currentDate,
-      changeFrequency: "weekly",
+      changeFrequency: "daily",
       priority: 0.9,
       alternates: {
         languages: {
@@ -40,12 +40,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
           zh: `${baseUrl}/zh/blog`,
         },
       },
-    },
-    {
-      url: `${baseUrl}/blog/admin`,
-      lastModified: currentDate,
-      changeFrequency: "monthly",
-      priority: 0.3,
     },
   ]
 }

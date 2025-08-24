@@ -31,8 +31,8 @@ export default function AboutPage() {
           <h1 className="text-4xl font-bold">{language === "zh" ? "关于我们" : "About Us"}</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             {language === "zh"
-              ? "我们致力于为用户提供高质量、免费的PDF处理工具，让文档转换变得简单高效。"
-              : "We are dedicated to providing high-quality, free PDF processing tools that make document conversion simple and efficient."}
+              ? "我们致力于为用户提供功能全面、免费的PDF处理工具，集成OCR文字识别、AI智能总结、批量转换等先进功能，让文档处理变得简单高效。"
+              : "We are dedicated to providing comprehensive, free PDF processing tools with advanced features like OCR text recognition, AI smart summary, and batch conversion, making document processing simple and efficient."}
           </p>
           </div>
 
@@ -47,8 +47,8 @@ export default function AboutPage() {
             <CardContent>
               <p className="text-muted-foreground">
                 {language === "zh"
-                  ? "基于现代Web技术构建，完全开源透明，让每个人都能了解工具的工作原理。"
-                  : "Built with modern web technologies, completely open source and transparent, allowing everyone to understand how the tool works."}
+                  ? "基于Next.js、TypeScript等现代Web技术构建，集成多种专业库，完全开源透明，让每个人都能了解工具的工作原理。"
+                  : "Built with Next.js, TypeScript and other modern web technologies, integrating multiple professional libraries, completely open source and transparent, allowing everyone to understand how the tool works."}
               </p>
             </CardContent>
           </Card>
@@ -63,8 +63,8 @@ export default function AboutPage() {
             <CardContent>
               <p className="text-muted-foreground">
                 {language === "zh"
-                  ? "采用PDF.js引擎，纯前端处理，无需上传文件到服务器，保护您的隐私安全。"
-                  : "Powered by PDF.js engine with pure frontend processing, no need to upload files to servers, protecting your privacy."}
+                  ? "采用PDF.js引擎，集成Tesseract.js OCR识别和WebLLM AI模型，纯前端处理，无需上传文件到服务器，保护您的隐私安全。"
+                  : "Powered by PDF.js engine, integrated with Tesseract.js OCR recognition and WebLLM AI model, pure frontend processing, no need to upload files to servers, protecting your privacy."}
               </p>
             </CardContent>
           </Card>
@@ -79,8 +79,8 @@ export default function AboutPage() {
             <CardContent>
               <p className="text-muted-foreground">
                 {language === "zh"
-                  ? "持续优化用户体验，根据用户反馈不断改进功能，让工具更好用。"
-                  : "Continuously optimizing user experience, constantly improving features based on user feedback to make tools better."}
+                  ? "提供从基础转换到高级AI功能的完整解决方案，持续优化用户体验，根据用户反馈不断改进功能，让工具更强大好用。"
+                  : "Providing complete solutions from basic conversion to advanced AI features, continuously optimizing user experience, constantly improving features based on user feedback to make tools more powerful and user-friendly."}
               </p>
             </CardContent>
           </Card>
@@ -104,6 +104,10 @@ export default function AboutPage() {
                   <li>• TypeScript - {language === "zh" ? "类型安全" : "Type Safety"}</li>
                   <li>• Tailwind CSS - {language === "zh" ? "原子化CSS" : "Atomic CSS"}</li>
                   <li>• PDF.js - {language === "zh" ? "PDF处理引擎" : "PDF Processing Engine"}</li>
+                  <li>• Tesseract.js - {language === "zh" ? "OCR文字识别" : "OCR Text Recognition"}</li>
+                  <li>• WebLLM - {language === "zh" ? "浏览器端AI模型" : "Browser-side AI Model"}</li>
+                  <li>• GIF.js - {language === "zh" ? "GIF动画生成" : "GIF Animation Generation"}</li>
+                  <li>• PDF-lib - {language === "zh" ? "PDF文档生成" : "PDF Document Generation"}</li>
                 </ul>
               </div>
               <div>
@@ -111,8 +115,14 @@ export default function AboutPage() {
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• {language === "zh" ? "纯前端处理" : "Pure Frontend Processing"}</li>
                   <li>• {language === "zh" ? "批量转换" : "Batch Conversion"}</li>
+                  <li>• {language === "zh" ? "OCR文字识别" : "OCR Text Recognition"}</li>
+                  <li>• {language === "zh" ? "AI智能总结" : "AI Smart Summary"}</li>
                   <li>• {language === "zh" ? "水印支持" : "Watermark Support"}</li>
                   <li>• {language === "zh" ? "多格式输出" : "Multiple Format Output"}</li>
+                  <li>• {language === "zh" ? "GIF动画生成" : "GIF Animation Creation"}</li>
+                  <li>• {language === "zh" ? "可搜索PDF生成" : "Searchable PDF Generation"}</li>
+                  <li>• {language === "zh" ? "页面合并" : "Page Merging"}</li>
+                  <li>• {language === "zh" ? "密码保护支持" : "Password Protection Support"}</li>
                 </ul>
               </div>
             </div>

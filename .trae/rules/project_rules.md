@@ -144,4 +144,4 @@ You are an expert in JavaScript, React, Node.js, Next.js App Router, Zustand, Sh
   Follow Next.js docs for Data Fetching, Rendering, and Routing.
   每次完成一个功能都需要执行npx tsc --noEmit检查类型错误以及npm run lint检查错误
   每次提交代码都需要执行npm run format格式化代码
-  提交到git仓库前都需要先pull最新代码
+  提交到git仓库前都需要先pull最新代码，提交信息采用英文

@@ -26,7 +26,6 @@ interface BlogPost {
 }
 
 export default function BlogAdminPage() {
-  const [theme, setTheme] = useState<"light" | "dark">("light")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState("")
   const [posts, setPosts] = useState<BlogPost[]>([])
@@ -72,9 +71,7 @@ export default function BlogAdminPage() {
     }
   }, [isAuthenticated, supabase])
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark")
-  }, [theme])
+
 
   const handleLogin = () => {
     // Simple password check - in production, use proper authentication
@@ -366,7 +363,7 @@ export default function BlogAdminPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} />
+              <ThemeSwitcher />
             </div>
           </div>
         </div>

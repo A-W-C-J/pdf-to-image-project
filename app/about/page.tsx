@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,16 +12,11 @@ import Breadcrumb from "@/components/breadcrumb"
 
 export default function AboutPage() {
   const { language, setLanguage } = useLanguage()
-  const [theme, setTheme] = useState<"light" | "dark">("light")
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark")
-  }, [theme])
 
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="fixed top-4 right-4 z-10 flex flex-col sm:flex-row gap-2">
-        <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} language={language} />
+        <ThemeSwitcher language={language} />
         <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
       </div>
 

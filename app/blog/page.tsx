@@ -35,7 +35,6 @@ interface BlogPost {
 
 export default function BlogPage() {
   const { language, setLanguage } = useLanguage()
-  const [theme, setTheme] = useState<"light" | "dark">("light")
   const [searchTerm, setSearchTerm] = useState("")
   const [filteredPosts, setFilteredPosts] = useState<BlogPost[]>([])
   const [allPosts, setAllPosts] = useState<BlogPost[]>([])
@@ -97,9 +96,7 @@ export default function BlogPage() {
     loadArticles()
   }, [supabase])
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark")
-  }, [theme])
+
 
   useEffect(() => {
     if (!searchTerm.trim()) {
@@ -125,7 +122,7 @@ export default function BlogPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="fixed top-4 right-4 z-10 flex flex-col sm:flex-row gap-2">
-        <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} language={language} />
+        <ThemeSwitcher language={language} />
         <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
       </div>
 

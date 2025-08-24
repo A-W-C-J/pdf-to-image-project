@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -181,11 +181,6 @@ const createGifAnimation = async (images: ConvertedImage[]): Promise<string> => 
 
 export default function PDFConverter() {
   const { language, setLanguage, t } = useLanguage()
-  const [theme, setTheme] = useState<"light" | "dark">("light")
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark")
-  }, [theme])
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -1673,7 +1668,7 @@ export default function PDFConverter() {
           </Link>
         </div>
         <div className="flex gap-2">
-          <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} language={language} />
+          <ThemeSwitcher language={language} />
           <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
         </div>
       </div>
@@ -1707,7 +1702,7 @@ export default function PDFConverter() {
             </Link>
             <div className="flex gap-2 pt-3 border-t">
               <div className="h-10 flex items-center">
-                <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} language={language} />
+                <ThemeSwitcher language={language} />
               </div>
               <div className="h-10 flex items-center">
                 <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />

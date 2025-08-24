@@ -40,6 +40,8 @@ export default function BlogAdminPage() {
   const [aiTopic, setAiTopic] = useState("")
   const [aiLanguage, setAiLanguage] = useState("中文")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generationStatus, setGenerationStatus] = useState("")
+  const [streamingContent, setStreamingContent] = useState("")
 
   const supabase = createClient()
 
@@ -221,6 +223,8 @@ export default function BlogAdminPage() {
 
     setIsGenerating(true)
     setError("")
+    setGenerationStatus("正在连接AI服务...")
+    setStreamingContent("")
 
     try {
       const response = await fetch("/api/generate-blog", {
@@ -238,21 +242,65 @@ export default function BlogAdminPage() {
         throw new Error("生成失败")
       }
 
-      const aiData = await response.json()
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error("无法获取响应流")
+      }
 
-      setFormData({
-        title: aiData.title,
-        excerpt: aiData.excerpt,
-        content: aiData.content,
-        tags: aiData.tags || [],
-        seo_keywords: aiData.seo_keywords || [],
-      })
+      const decoder = new TextDecoder()
+      let buffer = ""
 
-      setSuccess("AI内容生成成功！请检查并编辑内容")
-      setTimeout(() => setSuccess(""), 5000)
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || "" // 保留不完整的行
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              
+              switch (data.type) {
+                case "start":
+                  setGenerationStatus(data.message)
+                  break
+                case "content":
+                  setGenerationStatus("正在生成内容...")
+                  setStreamingContent(prev => prev + data.content)
+                  break
+                case "complete":
+                  setGenerationStatus("生成完成！")
+                  setFormData({
+                    title: data.data.title,
+                    excerpt: data.data.excerpt,
+                    content: data.data.content,
+                    tags: data.data.tags || [],
+                    seo_keywords: data.data.seo_keywords || [],
+                  })
+                  setSuccess("AI内容生成成功！请检查并编辑内容")
+                  setTimeout(() => {
+                    setSuccess("")
+                    setGenerationStatus("")
+                    setStreamingContent("")
+                  }, 5000)
+                  break
+                case "error":
+                  throw new Error(data.message)
+              }
+            } catch (parseError) {
+              console.warn("解析流数据失败:", parseError)
+            }
+          }
+        }
+      }
     } catch (error: any) {
       console.error("AI generation error:", error)
       setError(error.message || "AI生成失败，请稍后重试")
+      setGenerationStatus("")
+      setStreamingContent("")
     } finally {
       setIsGenerating(false)
     }
@@ -403,6 +451,26 @@ export default function BlogAdminPage() {
                       </>
                     )}
                   </Button>
+                  
+                  {/* 生成状态显示 */}
+                  {(isGenerating || generationStatus) && (
+                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                          {generationStatus || "正在生成..."}
+                        </span>
+                      </div>
+                      {streamingContent && (
+                        <div className="mt-3">
+                          <div className="text-xs text-blue-600 dark:text-blue-400 mb-2">实时生成内容预览：</div>
+                          <div className="max-h-32 overflow-y-auto bg-white dark:bg-gray-900 p-3 rounded border text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                            {streamingContent}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
+import '@testing-library/jest-dom'
 import Home from '../app/page'
 
 // Mock messages for internationalization
@@ -40,7 +41,7 @@ jest.mock('pdfjs-dist', () => ({
         getViewport: jest.fn(() => ({ width: 100, height: 100 })),
         render: jest.fn(() => ({ promise: Promise.resolve() }))
       }))
-    }))
+    })
   }))
 }))
 

@@ -19,7 +19,18 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const prompt = `你是一位专业的博客写作专家，精通SEO优化。请根据以下要求创作一篇博客文章：
+    const prompt = `你是一位专业的博客写作专家，精通SEO优化，当前负责对https://www.pdf2img.top/进行博文创作以求长尾词SEO优化，该网站的核心特性为：
+• 纯前端处理
+• 批量转换
+• OCR文字识别
+• AI智能总结
+• 水印支持
+• 多格式输出
+• GIF动画生成
+• 可搜索PDF生成
+• 页面合并
+• 密码保护支持。
+请根据以下要求创作一篇博客文章：
 
 主题：${topic}
 语言：${language}

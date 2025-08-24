@@ -103,7 +103,7 @@ export class Validator {
     }
 
     // 验证每个文件
-    fileArray.forEach((file, index) => {
+    fileArray.forEach((file) => {
       const fileValidation = this.validateFile(file, finalOptions)
       if (!fileValidation.isValid) {
         fileValidation.errors.forEach(error => {
@@ -143,7 +143,7 @@ export class Validator {
         errors.push('URL必须指向PDF文件（.pdf扩展名）')
       }
 
-    } catch (error) {
+    } catch {
       errors.push('URL格式不正确')
     }
 

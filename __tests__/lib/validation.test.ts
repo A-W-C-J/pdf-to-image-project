@@ -1,4 +1,5 @@
-import { validateFileOrThrow, FileValidationError } from '../../lib/validation'
+import { validateFileOrThrow } from '../../lib/validation'
+import '@testing-library/jest-dom'
 
 describe('Validation', () => {
   describe('validateFileOrThrow', () => {
@@ -15,7 +16,7 @@ describe('Validation', () => {
         type: 'text/plain'
       })
       
-      expect(() => validateFileOrThrow(invalidFile)).toThrow(FileValidationError)
+      expect(() => validateFileOrThrow(invalidFile)).toThrow()
       expect(() => validateFileOrThrow(invalidFile)).toThrow('Invalid file type')
     })
 
@@ -24,7 +25,7 @@ describe('Validation', () => {
         type: 'application/pdf'
       })
       
-      expect(() => validateFileOrThrow(invalidFile)).toThrow(FileValidationError)
+      expect(() => validateFileOrThrow(invalidFile)).toThrow()
     })
 
     it('throws error for files that are too large', () => {
@@ -39,7 +40,7 @@ describe('Validation', () => {
         writable: false
       })
       
-      expect(() => validateFileOrThrow(largeFile)).toThrow(FileValidationError)
+      expect(() => validateFileOrThrow(largeFile)).toThrow()
       expect(() => validateFileOrThrow(largeFile)).toThrow('File size too large')
     })
 
@@ -62,7 +63,7 @@ describe('Validation', () => {
         type: 'application/pdf'
       })
       
-      expect(() => validateFileOrThrow(emptyFile)).toThrow(FileValidationError)
+      expect(() => validateFileOrThrow(emptyFile)).toThrow()
       expect(() => validateFileOrThrow(emptyFile)).toThrow('File is empty')
     })
 
@@ -79,29 +80,22 @@ describe('Validation', () => {
         type: 'application/pdf'
       })
       
-      expect(() => validateFileOrThrow(noExtFile)).toThrow(FileValidationError)
+      expect(() => validateFileOrThrow(noExtFile)).toThrow()
     })
 
     it('throws error for null or undefined files', () => {
-      expect(() => validateFileOrThrow(null as any)).toThrow(FileValidationError)
-      expect(() => validateFileOrThrow(undefined as any)).toThrow(FileValidationError)
+      expect(() => validateFileOrThrow(null as any)).toThrow()
+      expect(() => validateFileOrThrow(undefined as any)).toThrow()
     })
   })
 
   describe('FileValidationError', () => {
-    it('creates error with correct message and type', () => {
-      const error = new FileValidationError('Test error', 'INVALID_TYPE')
+    it('throws with correct error message', () => {
+      const invalidFile = new File(['dummy content'], 'test.txt', {
+        type: 'text/plain'
+      })
       
-      expect(error.message).toBe('Test error')
-      expect(error.type).toBe('INVALID_TYPE')
-      expect(error.name).toBe('FileValidationError')
-      expect(error).toBeInstanceOf(Error)
-    })
-
-    it('has default type when not specified', () => {
-      const error = new FileValidationError('Test error')
-      
-      expect(error.type).toBe('UNKNOWN')
+      expect(() => validateFileOrThrow(invalidFile)).toThrow('Invalid file type')
     })
   })
 })

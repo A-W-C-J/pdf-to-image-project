@@ -13,15 +13,18 @@ import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileImage, Upload, X, BookOpen, Github, User, Menu, FileText, Copy } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { useLanguage } from "@/lib/i18n"
 import Breadcrumb from "@/components/breadcrumb"
 import FAQSchema from "@/components/faq-schema"
 import { handleError, ErrorType, createAppError, getUserFriendlyMessage } from "@/lib/error-handler"
-import { validateFileOrThrow, validateFilesOrThrow, validateUrlOrThrow, Validator } from "@/lib/validation"
+import { validateFilesOrThrow, validateUrlOrThrow } from "@/lib/validation"
 import { useErrorHandler } from "@/components/error-boundary"
-import styles from "./page.module.styl"
+import LatexRenderer from "@/components/latex-renderer"
+import { MarkdownRenderer } from "@/components/markdown-renderer"
+import DocxRenderer from "@/components/docx-renderer"
 import GIF from "gif.js"
 import { createWorker } from "tesseract.js"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
@@ -187,6 +190,9 @@ export default function PDFConverter() {
   const { language, setLanguage, t } = useLanguage()
   const { handleError: handleErrorWithBoundary } = useErrorHandler()
 
+  // Tab状态管理
+  const [activeTab, setActiveTab] = useState<string>("pdf-to-image")
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [batchFiles, setBatchFiles] = useState<BatchFile[]>([])
@@ -244,6 +250,14 @@ export default function PDFConverter() {
   })
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
   const [summaryResult, setSummaryResult] = useState<string>('')
+
+  // PDF转Word相关状态
+  const [convertedWordUrl, setConvertedWordUrl] = useState<string | null>(null)
+  const [selectedFormat, setSelectedFormat] = useState<string>('docx')
+  const [selectedFormulaMode, setSelectedFormulaMode] = useState<string>('normal')
+  const [previewContent, setPreviewContent] = useState<string | null>(null)
+  const [convertedWordContent, setConvertedWordContent] = useState<ArrayBuffer | null>(null)
+  const [showPreview, setShowPreview] = useState<boolean>(false)
   const [isModelLoading, setIsModelLoading] = useState(false)
 
   // 图像质量检测函数
@@ -951,7 +965,7 @@ export default function PDFConverter() {
           )
         }
       } catch (error) {
-        const errorInfo = handleError(error, { showToUser: true })
+        handleError(error, { showToUser: true })
         setError(getUserFriendlyMessage(error))
         handleErrorWithBoundary(error instanceof Error ? error : new Error(String(error)))
         return
@@ -1021,7 +1035,7 @@ export default function PDFConverter() {
         }
         setError("") // 清除之前的错误
       } catch (error) {
-        const errorInfo = handleError(error, { showToUser: true })
+        handleError(error, { showToUser: true })
         setError(getUserFriendlyMessage(error))
         return
       }
@@ -1378,6 +1392,119 @@ export default function PDFConverter() {
     }
 
     return { images }
+  }
+
+  const handlePdfToWordConvert = async () => {
+    if (!selectedFile) return
+
+    setIsConverting(true)
+    setError("")
+    setConvertedWordUrl(null)
+    setPreviewContent(null)
+    setConvertedWordContent(null)
+    setShowPreview(false)
+    setProgress(0)
+    setStatus(language === "zh" ? "准备上传文件..." : "Preparing to upload file...")
+
+    try {
+      // 验证文件大小
+      const maxSize = 300 * 1024 * 1024 // 300MB
+      if (selectedFile.size > maxSize) {
+        throw new Error(language === "zh" ? "文件大小不能超过300MB" : "File size cannot exceed 300MB")
+      }
+
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      formData.append('format', selectedFormat)
+      formData.append('formulaMode', selectedFormulaMode)
+
+      setStatus(language === "zh" ? "上传文件到服务器..." : "Uploading file to server...")
+      setProgress(10)
+
+      const response = await fetch('/api/pdf-convert', {
+        method: 'POST',
+        body: formData
+      })
+
+      setStatus(language === "zh" ? "处理服务器响应..." : "Processing server response...")
+      setProgress(30)
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || (language === "zh" ? "转换失败" : "Conversion failed"))
+      }
+
+      if (result.success) {
+        setStatus(language === "zh" ? "转换完成，准备下载" : "Conversion completed, preparing download")
+        setProgress(100)
+        setConvertedWordUrl(result.data.downloadUrl)
+        
+        // 如果是markdown、tex或docx格式，尝试获取预览内容
+        if (selectedFormat === 'md' || selectedFormat === 'tex' || selectedFormat === 'docx') {
+          try {
+            // 优先使用API返回的预览内容
+            if (result.data.previewContent) {
+              console.log('使用API返回的预览内容')
+              if (selectedFormat === 'docx') {
+                // DOCX格式的预览内容是ArrayBuffer
+                setConvertedWordContent(result.data.previewContent)
+              } else {
+                // MD和TEX格式的预览内容是字符串
+                setPreviewContent(result.data.previewContent)
+              }
+              setShowPreview(true)
+            } else {
+              // 如果没有预览内容，则尝试下载
+              console.log('API未返回预览内容，尝试下载文件')
+              const previewResponse = await fetch(result.data.downloadUrl)
+              
+              if (previewResponse.ok) {
+                if (selectedFormat === 'docx') {
+                  // DOCX格式需要获取ArrayBuffer
+                  const arrayBuffer = await previewResponse.arrayBuffer()
+                  setConvertedWordContent(arrayBuffer)
+                } else {
+                  // MD和TEX格式获取文本内容
+                  const arrayBuffer = await previewResponse.arrayBuffer()
+                  const decoder = new TextDecoder('utf-8')
+                  const previewText = decoder.decode(arrayBuffer)
+                  setPreviewContent(previewText)
+                }
+                setShowPreview(true)
+              } else {
+                console.warn('获取预览内容失败: HTTP', previewResponse.status)
+              }
+            }
+          } catch (previewError) {
+            console.warn('获取预览内容失败:', previewError)
+          }
+        }
+      } else {
+        throw new Error(result.error || (language === "zh" ? "转换失败" : "Conversion failed"))
+      }
+    } catch (error) {
+      console.error('PDF转Word错误:', error)
+      let errorMessage = language === "zh" ? "转换过程中发生错误" : "An error occurred during conversion"
+      
+      if (error instanceof Error) {
+        if (error.message.includes('API密钥')) {
+          errorMessage = language === "zh" ? "API密钥配置错误，请联系管理员" : "API key configuration error, please contact administrator"
+        } else if (error.message.includes('文件大小')) {
+          errorMessage = error.message
+        } else if (error.message.includes('超时')) {
+          errorMessage = language === "zh" ? "转换超时，请稍后重试" : "Conversion timeout, please try again later"
+        } else if (error.message.includes('网络')) {
+          errorMessage = language === "zh" ? "网络连接错误，请检查网络" : "Network connection error, please check your network"
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      setError(errorMessage)
+    } finally {
+      setIsConverting(false)
+    }
   }
 
   const convertPDF = async () => {
@@ -1777,52 +1904,43 @@ export default function PDFConverter() {
         <div className="pt-16 sm:pt-8">
           <Breadcrumb />
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold">{t("title")}</h1>
-            <p className="text-muted-foreground">{t("subtitle")}</p>
+            <h1 className="text-3xl font-bold">{language === "zh" ? "PDF工具集" : "PDF Tools"}</h1>
+            <p className="text-muted-foreground">{language === "zh" ? "强大的PDF处理工具，支持转换为图片和Word文档" : "Powerful PDF processing tools, supports conversion to images and Word documents"}</p>
             <p className="text-sm text-muted-foreground">{t("privacy")}</p>
           </div>
         </div>
 
-        <Card>
-          {/* <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              {t("fileUpload")}
-            </CardTitle>
-            <CardDescription>{t("fileUploadDesc")}</CardDescription>
-          </CardHeader> */}
-          <CardContent className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="pdf-to-image" className="flex items-center gap-2">
+              <FileImage className="h-4 w-4" />
+              {language === "zh" ? "PDF转图片 + OCR识别" : "PDF to Image + OCR"}
+            </TabsTrigger>
+            <TabsTrigger value="pdf-to-word" className="flex items-center gap-2 relative">
+              <FileText className="h-4 w-4" />
+              {language === "zh" ? "PDF转文档格式" : "PDF to Document"}
+              <span className="absolute -top-1 -right-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-1.5 py-0.5 rounded-full font-semibold shadow-sm">
+                Pro
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="pdf-to-image">
+            <Card>
+              <CardContent className="space-y-4">
             <div className="space-y-3">
-              <div className={styles.inputSourceContainer} role="tablist" aria-label={language === "zh" ? "输入源选择" : "Input source selection"}>
-                <button
-                  type="button"
-                  onClick={() => setInputSource("file")}
-                  className={`${styles.inputSourceButton} ${
-                    inputSource === "file" ? styles.active : styles.inactive
-                  }`}
-                  role="tab"
-                  aria-selected={inputSource === "file"}
-                  aria-controls="input-content"
-                  id="file-tab"
-                  tabIndex={inputSource === "file" ? 0 : -1}
-                >
-                  {t("localFile")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInputSource("url")}
-                  className={`${styles.inputSourceButton} ${
-                    inputSource === "url" ? styles.active : styles.inactive
-                  }`}
-                  role="tab"
-                  aria-selected={inputSource === "url"}
-                  aria-controls="input-content"
-                  id="url-tab"
-                  tabIndex={inputSource === "url" ? 0 : -1}
-                >
-                  {t("urlInput")}
-                </button>
-              </div>
+              <Tabs value={inputSource} onValueChange={(value) => setInputSource(value as "file" | "url")} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="file" className="flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    {t("localFile")}
+                  </TabsTrigger>
+                  <TabsTrigger value="url" className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    {t("urlInput")}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
               
               {inputSource === "file" && (
                 <div className="flex items-center space-x-2" role="group" aria-labelledby="processing-mode-label">
@@ -2811,6 +2929,308 @@ export default function PDFConverter() {
             </CardContent>
           </Card>
         )}
+          </TabsContent>
+
+          <TabsContent value="pdf-to-word">
+            <Card>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  {/* <div className="text-center">
+                    <FileText className="h-12 w-12 mx-auto text-primary mb-2" />
+                    <h3 className="text-lg font-semibold">
+                      {language === "zh" ? "PDF转Word" : "PDF to Word"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {language === "zh" 
+                        ? "将PDF文档转换为可编辑的Word文档，保持原有格式和布局" 
+                        : "Convert PDF documents to editable Word documents while preserving original formatting and layout"}
+                    </p>
+                  </div> */}
+
+                  {/* 文件上传区域 */}
+                  <div
+                    className={`flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                      isDragging ? "border-primary bg-muted" : "border-border"
+                    }`}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      setIsDragging(true)
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault()
+                      setIsDragging(false)
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault()
+                      setIsDragging(false)
+                      const files = Array.from(e.dataTransfer.files)
+                      const pdfFiles = files.filter(file => file.type === 'application/pdf')
+                      if (pdfFiles.length > 0) {
+                        setSelectedFile(pdfFiles[0])
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={language === "zh" ? "拖拽PDF文件到此处或点击选择文件" : "Drag PDF files here or click to select files"}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        fileInputRef.current?.click()
+                      }
+                    }}
+                  >
+                    <Label
+                      htmlFor="word-file-input"
+                      className="flex cursor-pointer flex-col items-center gap-2 text-muted-foreground"
+                    >
+                      <Upload className="h-8 w-8" aria-hidden="true" />
+                      <span>{language === "zh" ? "拖拽PDF文件到此处，或点击选择文件" : "Drag and drop PDF file here, or click to select"}</span>
+                    </Label>
+                    <Input
+                      ref={fileInputRef}
+                      id="word-file-input"
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          setSelectedFile(file)
+                        }
+                      }}
+                      className="sr-only"
+                      aria-label={language === "zh" ? "选择PDF文件" : "Select PDF files"}
+                    />
+                    {selectedFile && (
+                      <p className="text-sm text-muted-foreground">
+                        {language === "zh" ? "已选择" : "Selected"}: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
+                    )}
+                  </div>
+
+
+
+                  {/* 格式选择器 */}
+                  {selectedFile && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="format-select">
+                          {language === "zh" ? "输出格式" : "Output Format"}
+                        </Label>
+                        <Select value={selectedFormat} onValueChange={(value) => {
+                          setSelectedFormat(value)
+                          // 切换格式时重置转换状态
+                          setConvertedWordUrl(null)
+                          setPreviewContent(null)
+                          setShowPreview(false)
+                        }}>
+                          <SelectTrigger id="format-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="docx">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                <span>Word (.docx)</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="md">
+                              <div className="flex items-center gap-2">
+                                <BookOpen className="h-4 w-4" />
+                                <span>Markdown (.md)</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="tex">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                <span>LaTeX (.tex)</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="formula-mode-select">
+                          {language === "zh" ? "公式模式" : "Formula Mode"}
+                        </Label>
+                        <Select value={selectedFormulaMode} onValueChange={setSelectedFormulaMode}>
+                          <SelectTrigger id="formula-mode-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="normal">
+                              {language === "zh" ? "标准模式" : "Normal Mode"}
+                            </SelectItem>
+                            <SelectItem value="dollar">
+                              {language === "zh" ? "美元符号模式" : "Dollar Sign Mode"}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 转换按钮 */}
+                  {selectedFile && (
+                    <Button 
+                      onClick={handlePdfToWordConvert}
+                      disabled={isConverting}
+                      className="w-full"
+                    >
+                      {isConverting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                          {language === "zh" ? "转换中..." : "Converting..."}
+                        </>
+                      ) : (
+                        language === "zh" ? "开始转换" : "Start Conversion"
+                      )}
+                    </Button>
+                  )}
+
+                  {/* 进度显示 */}
+                  {isConverting && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>{status}</span>
+                        <span>{progress}%</span>
+                      </div>
+                      <Progress value={progress} className="w-full" />
+                    </div>
+                  )}
+
+                  {/* 错误信息 */}
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* 转换结果 */}
+                  {convertedWordUrl && (
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-8 w-8 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center">
+                          <FileText className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-green-800 dark:text-green-200">
+                            {language === "zh" ? "转换完成" : "Conversion Complete"}
+                          </h4>
+                          <p className="text-sm text-green-600 dark:text-green-400">
+                            {language === "zh" 
+                              ? `${selectedFormat.toUpperCase()}文档已准备就绪` 
+                              : `${selectedFormat.toUpperCase()} document is ready`}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* 预览功能 */}
+                      {showPreview && (selectedFormat === 'md' || selectedFormat === 'tex') && previewContent && (
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h5 className="font-medium text-green-800 dark:text-green-200">
+                              {language === "zh" ? "内容预览" : "Content Preview"}
+                            </h5>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowPreview(false)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {selectedFormat === 'md' ? (
+                            <div className="bg-white dark:bg-gray-800 border rounded-lg p-4 max-h-60 overflow-y-auto">
+                              <MarkdownRenderer 
+                                content={previewContent} 
+                                className="text-sm" 
+                              />
+                            </div>
+                          ) : selectedFormat === 'tex' ? (
+                            <div className="space-y-2">
+                              <LatexRenderer 
+                                content={previewContent} 
+                                className="max-h-60 dark:bg-gray-800 dark:border-gray-600" 
+                              />
+                              <div className="text-xs text-muted-foreground">
+                                {language === "zh" 
+                                  ? "LaTeX数学公式渲染预览 - 完整文档请下载后使用LaTeX编译器编译" 
+                                  : "LaTeX math formula rendered preview - Download for full document compilation"}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                      
+                      {/* DOCX格式预览 */}
+                      {showPreview && selectedFormat === 'docx' && (
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h5 className="font-medium text-green-800 dark:text-green-200">
+                              {language === "zh" ? "DOCX预览" : "DOCX Preview"}
+                            </h5>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowPreview(false)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                            {convertedWordContent && typeof convertedWordContent === 'object' && convertedWordContent instanceof ArrayBuffer ? (
+                              <DocxRenderer 
+                                content={convertedWordContent}
+                                className="max-h-96 overflow-y-auto"
+                              />
+                            ) : (
+                              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                <p className="text-sm text-blue-800 dark:text-blue-200">
+                                  {language === "zh" 
+                                    ? "正在加载DOCX预览内容..." 
+                                    : "Loading DOCX preview content..."}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 下载按钮 */}
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={() => {
+                            const link = document.createElement('a')
+                            link.href = convertedWordUrl
+                            const extension = selectedFormat === 'docx' ? '.docx' : selectedFormat === 'md' ? '.md' : '.tex'
+                            link.download = selectedFile?.name?.replace('.pdf', extension) || `converted${extension}`
+                            link.click()
+                          }}
+                          className="flex-1"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          {language === "zh" 
+                            ? `下载${selectedFormat.toUpperCase()}文档` 
+                            : `Download ${selectedFormat.toUpperCase()} Document`}
+                        </Button>
+                        
+                        {(selectedFormat === 'md' || selectedFormat === 'docx' || selectedFormat === 'tex') && !showPreview && (
+                          <Button 
+                            variant="outline"
+                            onClick={() => setShowPreview(true)}
+                          >
+                            {language === "zh" ? "预览" : "Preview"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         <FAQSchema />
 
@@ -2818,7 +3238,7 @@ export default function PDFConverter() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <p className="text-sm text-muted-foreground">
-                {language === "zh" ? "© 2024 PDF转图片工具" : "© 2024 PDF to Image Converter"}
+                {language === "zh" ? "© 2024 PDF工具集" : "© 2024 PDF Tools"}
               </p>
               <a
                 href="https://github.com/A-W-C-J/pdf-to-image-project"
@@ -2842,11 +3262,11 @@ export default function PDFConverter() {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              name: language === "zh" ? "PDF转图片工具" : "PDF to Image Converter",
+              name: language === "zh" ? "PDF工具集" : "PDF Tools",
               description:
                 language === "zh"
-                  ? "免费在线PDF转图片工具，支持批量转换、水印添加、多种格式输出"
-                  : "Free online PDF to image converter with batch conversion, watermark support, and multiple format output",
+                  ? "强大的PDF处理工具集，支持PDF转图片、PDF转Word等多种转换功能"
+                  : "Powerful PDF processing tools supporting PDF to image, PDF to Word and other conversion features",
               url: "https://www.pdf2img.top",
               applicationCategory: "UtilityApplication",
               operatingSystem: "Web Browser",
@@ -2860,7 +3280,7 @@ export default function PDFConverter() {
               runtimePlatform: "Web Browser",
               author: {
                 "@type": "Organization",
-                name: "PDF2IMG.TOP",
+                name: "PDF Tools",
               },
             }),
           }}

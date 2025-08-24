@@ -142,6 +142,12 @@ You are an expert in JavaScript, React, Node.js, Next.js App Router, Zustand, Sh
     - Use Stylus modules for complex, unique component styles.
   - Use pnpm for package management.
   Follow Next.js docs for Data Fetching, Rendering, and Routing.
-  每次完成一个功能都需要执行npx tsc --noEmit检查类型错误以及npm run lint检查错误
-  每次提交代码都需要执行npm run format格式化代码
-  提交到git仓库前都需要先pull最新代码，提交信息采用英文
+
+  Development Workflow
+  - Run type checking after completing each feature: `npx tsc --noEmit`
+  - Run linting after completing each feature: `npm run lint`
+  - Format code before committing: `npm run format`
+  - Pull latest changes before pushing to repository: `git pull origin main`
+  - Use English for all commit messages following conventional commit format
+  - Ensure all checks pass before committing code to maintain code quality
+  

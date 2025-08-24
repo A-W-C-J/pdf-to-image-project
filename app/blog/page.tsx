@@ -3,6 +3,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, Calendar, ArrowLeft } from "lucide-react"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -123,22 +124,24 @@ export default function BlogPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="fixed top-4 right-4 z-10 flex flex-col sm:flex-row gap-2">
+        <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} language={language} />
+        <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
+      </div>
+
+      <div className="fixed top-4 left-4 z-10">
+        <Link href="/">
+          <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
+            <ArrowLeft className="h-4 w-4" />
+            {language === "zh" ? "返回首页" : "Back to Home"}
+          </Button>
+        </Link>
+      </div>
+
       <header className="border-b bg-card">
         <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="h-4 w-4" />
-                {language === "zh" ? "返回转换器" : "Back to Converter"}
-              </Link>
-              <div className="h-4 w-px bg-border" />
-              <h1 className="text-xl font-semibold">{language === "zh" ? "技术博客" : "Tech Blog"}</h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <ThemeSwitcher currentTheme={theme} onThemeChange={setTheme} language={language} />
-              <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
-            </div>
+          <div className="flex items-center justify-center">
+            <h1 className="text-xl font-semibold">{language === "zh" ? "技术博客" : "Tech Blog"}</h1>
           </div>
         </div>
       </header>

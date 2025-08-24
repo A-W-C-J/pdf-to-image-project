@@ -26,6 +26,7 @@ export function SEOHead() {
       "PDF to GIF conversion",
       "Batch processing",
       "OCR text extraction",
+      "Searchable PDF generation",
       "PDF page merging",
       "Watermark support",
       "Privacy protection",

@@ -8,6 +8,7 @@ import { Github, ArrowLeft, Code, Users, Zap } from "lucide-react"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { translations, type Language } from "@/lib/i18n"
+import Breadcrumb from "@/components/breadcrumb"
 
 export default function AboutPage() {
   const [language, setLanguage] = useState<Language>("en")
@@ -25,26 +26,23 @@ export default function AboutPage() {
         <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
       </div>
 
-      <div className="fixed top-4 left-4 z-10">
-        <Link href="/">
-          <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-            <ArrowLeft className="h-4 w-4" />
-            {language === "zh" ? "返回首页" : "Back to Home"}
-          </Button>
-        </Link>
-      </div>
 
-      <div className="max-w-4xl mx-auto space-y-6 pt-16 sm:pt-8">
-        <div className="text-center space-y-4">
+
+      <div className="max-w-4xl mx-auto pt-16 sm:pt-8">
+        <div className="mb-6">
+          <Breadcrumb />
+        </div>
+        <div className="space-y-6">
+          <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold">{language === "zh" ? "关于我们" : "About Us"}</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             {language === "zh"
               ? "我们致力于为用户提供高质量、免费的PDF处理工具，让文档转换变得简单高效。"
               : "We are dedicated to providing high-quality, free PDF processing tools that make document conversion simple and efficient."}
           </p>
-        </div>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -92,9 +90,9 @@ export default function AboutPage() {
               </p>
             </CardContent>
           </Card>
-        </div>
+          </div>
 
-        <Card>
+          <Card>
           <CardHeader>
             <CardTitle>{language === "zh" ? "技术架构" : "Technical Architecture"}</CardTitle>
             <CardDescription>
@@ -151,18 +149,19 @@ export default function AboutPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{language === "zh" ? "联系我们" : "Contact Us"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              {language === "zh"
-                ? "如果您有任何问题、建议或想要贡献代码，欢迎通过GitHub Issues与我们联系。我们重视每一个用户的反馈，并会认真考虑每一个改进建议。"
-                : "If you have any questions, suggestions, or want to contribute code, please feel free to contact us through GitHub Issues. We value every user's feedback and will seriously consider every improvement suggestion."}
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === "zh" ? "联系我们" : "Contact Us"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                {language === "zh"
+                  ? "如果您有任何问题、建议或想要贡献代码，欢迎通过GitHub Issues与我们联系。我们重视每一个用户的反馈，并会认真考虑每一个改进建议。"
+                  : "If you have any questions, suggestions, or want to contribute code, please feel free to contact us through GitHub Issues. We value every user's feedback and will seriously consider every improvement suggestion."}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

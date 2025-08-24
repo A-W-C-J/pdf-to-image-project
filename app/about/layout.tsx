@@ -1,32 +1,33 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "About Us - Advanced PDF to Image Converter with Batch Processing",
-  description: "Learn about our mission to provide high-quality, free PDF processing tools with advanced features like batch processing, OCR text extraction, and page merging. We make document conversion simple and efficient with privacy protection.",
+  title: "About Us - Free PDF Processing Tools",
+  description: "Discover our mission to provide professional, free PDF processing tools. We offer batch conversion, OCR extraction, and page merging with complete privacy protection. Start using our tools today!",
   keywords: [
     "about PDF converter",
+    "free PDF tools",
     "batch PDF processing",
     "OCR text extraction",
     "PDF page merging",
-    "PDF tools team",
-    "document conversion",
-    "PDF processing",
-    "free tools",
+    "privacy safe PDF tools",
+    "document conversion team",
+    "PDF processing mission",
+    "free online tools",
     "privacy protection",
-    "advanced features",
-    "multiple file processing",
-    "web development"
+    "professional PDF tools",
+    "no registration required",
+    "secure PDF processing"
   ],
   openGraph: {
-    title: "About Us - Advanced PDF to Image Converter",
-    description: "Learn about our mission to provide high-quality, free PDF processing tools with batch processing, OCR text extraction, page merging, and advanced features that make document conversion simple and efficient.",
+    title: "About Us - Free PDF Processing Tools",
+    description: "Discover our mission to provide professional, free PDF processing tools. We offer batch conversion, OCR extraction, and page merging with complete privacy protection. Start using our tools today!",
     type: "website",
     url: "https://www.pdf2img.top/about",
   },
   twitter: {
     card: "summary_large_image",
-    title: "About Us - Advanced PDF Processing Tools",
-    description: "Learn about our mission to provide high-quality, free PDF processing tools with batch processing and OCR capabilities.",
+    title: "About Us - Free PDF Processing Tools",
+    description: "Professional, free PDF processing tools with batch conversion, OCR extraction, and privacy protection. Start using our tools today!",
   },
   alternates: {
     canonical: "https://www.pdf2img.top/about",

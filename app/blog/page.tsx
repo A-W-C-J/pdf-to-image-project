@@ -10,6 +10,8 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { translations, type Language, type TranslationKey } from "@/lib/i18n"
 import { createClient } from "@/lib/supabase/client"
+import Breadcrumb from "@/components/breadcrumb"
+import TagCloud from "@/components/tag-cloud"
 
 interface BlogPost {
   id: string
@@ -129,24 +131,10 @@ export default function BlogPage() {
         <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
       </div>
 
-      <div className="fixed top-4 left-4 z-10">
-        <Link href="/">
-          <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-            <ArrowLeft className="h-4 w-4" />
-            {language === "zh" ? "返回首页" : "Back to Home"}
-          </Button>
-        </Link>
-      </div>
-
-      <header className="border-b bg-card">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-center">
-            <h1 className="text-xl font-semibold">{language === "zh" ? "技术博客" : "Tech Blog"}</h1>
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-6xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <Breadcrumb />
+        </div>
         <div className="space-y-6 mb-8">
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold">{language === "zh" ? "PDF处理技术博客" : "PDF Processing Tech Blog"}</h2>
@@ -166,6 +154,11 @@ export default function BlogPage() {
               className="pl-10"
             />
           </div>
+        </div>
+
+        {/* 标签云 */}
+        <div className="mb-8">
+          <TagCloud language={language} maxTags={15} />
         </div>
 
         {/* 加载状态 */}
@@ -210,7 +203,9 @@ export default function BlogPage() {
                   <div className="flex flex-wrap gap-1">
                     {(language === "zh" ? (post.tags || []) : (post.tags_en || post.tags || [])).map((tag) => (
                       <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
+                        <Link href={`/blog/tag/${encodeURIComponent(tag)}`} className="hover:text-primary transition-colors">
+                          {tag}
+                        </Link>
                       </Badge>
                     ))}
                   </div>

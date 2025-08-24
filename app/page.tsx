@@ -15,6 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { translations, type Language, type TranslationKey } from "@/lib/i18n"
+import Breadcrumb from "@/components/breadcrumb"
+import FAQSchema from "@/components/faq-schema"
 import GIF from "gif.js"
 import { createWorker } from "tesseract.js"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
@@ -1726,20 +1728,23 @@ export default function PDFConverter() {
       </div>
 
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="text-center space-y-2 pt-16 sm:pt-8">
-          <h1 className="text-3xl font-bold">{t("title")}</h1>
-          <p className="text-muted-foreground">{t("subtitle")}</p>
-          <p className="text-sm text-muted-foreground">{t("privacy")}</p>
+        <div className="pt-16 sm:pt-8">
+          <Breadcrumb />
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-bold">{t("title")}</h1>
+            <p className="text-muted-foreground">{t("subtitle")}</p>
+            <p className="text-sm text-muted-foreground">{t("privacy")}</p>
+          </div>
         </div>
 
         <Card>
-          <CardHeader>
+          {/* <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
               {t("fileUpload")}
             </CardTitle>
             <CardDescription>{t("fileUploadDesc")}</CardDescription>
-          </CardHeader>
+          </CardHeader> */}
           <CardContent className="space-y-4">
             <div className="space-y-3">
               <div className="flex space-x-1 rounded-lg bg-muted p-1">
@@ -2621,6 +2626,8 @@ export default function PDFConverter() {
             </CardContent>
           </Card>
         )}
+
+        <FAQSchema />
 
         <footer className="mt-12 pt-8 border-t border-border">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">

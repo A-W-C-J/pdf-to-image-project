@@ -6,8 +6,8 @@ export type Language = "zh" | "en"
 
 export const translations = {
   zh: {
-    title: "PDF转图片工具",
-    subtitle: "将PDF文档转换为高质量图片",
+    title: "PDF转图片工具 - 批量处理与OCR识别",
+    subtitle: "支持批量转换、文字提取、页面合并、多格式输出的专业PDF处理工具",
     privacy: "所有处理都在您的浏览器中进行，文件不会上传到服务器",
     fileUpload: "文件上传",
     fileUploadDesc: "选择PDF文件或输入URL进行转换",
@@ -152,8 +152,8 @@ export const translations = {
     modelLoadFailed: "AI模型加载失败",
   },
   en: {
-    title: "PDF to Image Converter",
-    subtitle: "Convert PDF documents to high-quality images",
+    title: "PDF to Image Converter - Batch Processing & OCR",
+    subtitle: "Professional PDF processing tool with batch conversion, text extraction, page merging, and multi-format output",
     privacy: "All processing is done in your browser, files are not uploaded to servers",
     fileUpload: "File Upload",
     fileUploadDesc: "Select PDF file or enter URL for conversion",
@@ -358,27 +358,27 @@ export function useLanguage() {
 // SEO Translations
 export const seoTranslations = {
   zh: {
-    title: "PDF转图片工具 - 批量处理OCR文字识别在线转换器",
-    description: "先进的在线PDF转图片工具，支持批量处理、OCR文字提取、页面合并、水印添加。转换为PNG/JPEG/GIF格式，高质量输出，隐私安全，无需上传文件",
-    keywords: "PDF转图片,批量PDF转换,OCR文字识别,PDF页面合并,PDF转换器,PDF to PNG,PDF to JPEG,PDF to GIF,在线转换,免费工具,水印添加,文字提取",
-    ogTitle: "PDF转图片工具 - 批量处理OCR文字识别",
-    ogDescription: "将PDF文档批量转换为高质量图片，支持OCR文字提取、页面合并、水印添加，完全在浏览器中处理，保护您的隐私",
-    twitterTitle: "PDF转图片批量处理工具",
-    twitterDescription: "免费的在线PDF转图片转换器，支持批量处理、OCR文字识别、页面合并，高质量输出，隐私安全",
+    title: "PDF转图片工具 - 免费在线批量转换器",
+    description: "专业的PDF转图片在线工具，支持批量处理、OCR文字识别、页面合并等功能。完全免费，隐私安全，无需注册，立即开始转换！",
+    keywords: "PDF转图片,免费PDF转换器,在线PDF转图片,批量PDF处理,PDF转PNG工具,PDF转JPEG转换,OCR文字识别,PDF页面合并,无水印PDF转换,隐私安全转换,PDF文字提取,多格式PDF转换,PDF转GIF动图,免费在线工具,PDF批量转换器",
+    ogTitle: "免费PDF转图片工具 - 批量处理无需注册",
+    ogDescription: "专业PDF转图片转换器，支持批量处理、OCR识别、页面合并。完全免费使用，隐私安全，立即体验！",
+    twitterTitle: "免费PDF转图片批量转换器",
+    twitterDescription: "专业在线PDF转图片工具，批量处理、OCR识别、隐私安全。完全免费，无需注册，立即开始！",
     structuredDataName: "PDF转图片批量处理工具",
     structuredDataDescription: "免费的在线PDF转图片转换工具，支持批量处理、OCR文字提取、页面合并等多种功能",
     canonicalUrl: "https://www.pdf2img.top/",
   },
   en: {
-    title: "PDF to Image Converter - Batch Processing OCR Text Extraction Tool",
+    title: "Free PDF to Image Converter - Batch Processing Tool",
     description:
-      "Advanced online PDF to image converter with batch processing, OCR text extraction, page merging, and watermark support. Convert to PNG/JPEG/GIF formats with high-quality output, privacy-safe, no file upload required",
-    keywords: "PDF to image,batch PDF conversion,OCR text extraction,PDF page merge,PDF converter,PDF to PNG,PDF to JPEG,PDF to GIF,online converter,free tool,watermark support,text recognition",
-    ogTitle: "PDF to Image Converter - Batch Processing OCR Tool",
+      "Professional online PDF to image converter with batch processing, OCR text extraction, and page merging. Completely free, privacy-safe, no registration required. Start converting now!",
+    keywords: "PDF to image converter,free PDF converter,online PDF to image,batch PDF processing,PDF to PNG converter,PDF to JPEG tool,OCR text extraction,PDF page merge,privacy safe converter,bulk PDF conversion,PDF text recognition,multi-format PDF converter,PDF to GIF animation,free online tool,secure PDF processing",
+    ogTitle: "Free PDF to Image Converter - No Registration Required",
     ogDescription:
-      "Convert PDF documents to high-quality images with batch processing, OCR text extraction, page merging, and watermark support. Processed entirely in browser for privacy",
-    twitterTitle: "PDF to Image Batch Converter",
-    twitterDescription: "Free online PDF to image converter with batch processing, OCR text extraction, page merging, high-quality output and privacy protection",
+      "Professional PDF to image converter with batch processing, OCR extraction, and page merging. Completely free, privacy-safe. Start converting now!",
+    twitterTitle: "Free PDF to Image Batch Converter",
+    twitterDescription: "Professional online PDF to image tool with batch processing, OCR recognition, privacy protection. Completely free, no registration. Start now!",
     structuredDataName: "PDF to Image Batch Converter",
     structuredDataDescription: "Free online PDF to image conversion tool with batch processing, OCR text extraction, page merging and multiple format support",
     canonicalUrl: "https://www.pdf2img.top/en",

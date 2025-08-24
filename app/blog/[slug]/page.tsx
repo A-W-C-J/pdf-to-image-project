@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
 import { translations, type Language } from '@/lib/i18n';
 import ReactMarkdown from 'react-markdown';
+import RelatedArticles from '@/components/related-articles';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
@@ -285,6 +286,14 @@ export default function BlogPostPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* 相关文章推荐 */}
+          <RelatedArticles 
+            currentSlug={post.slug}
+            currentTags={language === 'zh' ? post.tags : (post.tags_en || post.tags)}
+            language={language}
+            maxArticles={3}
+          />
 
           {/* 底部导航 */}
           <div className="mt-8 pt-6 border-t border-border">

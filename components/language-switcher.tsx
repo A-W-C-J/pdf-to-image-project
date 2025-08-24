@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Globe, ChevronDown } from "lucide-react"
 import type { Language } from "@/lib/i18n"
+import styles from "./language-switcher.module.styl"
 
 interface LanguageSwitcherProps {
   currentLanguage: Language
@@ -19,22 +20,22 @@ export function LanguageSwitcher({ currentLanguage, onLanguageChange }: Language
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-          <Globe className="h-4 w-4" />
+        <Button variant="outline" size="sm" className={styles.triggerButton}>
+          <Globe className={styles.icon} />
           {languageLabels[currentLanguage]}
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className={styles.icon} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem
           onClick={() => onLanguageChange("zh")}
-          className={currentLanguage === "zh" ? "bg-accent" : ""}
+          className={`${styles.menuItem} ${currentLanguage === "zh" ? styles.active : styles.inactive}`}
         >
           中文
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => onLanguageChange("en")}
-          className={currentLanguage === "en" ? "bg-accent" : ""}
+          className={`${styles.menuItem} ${currentLanguage === "en" ? styles.active : styles.inactive}`}
         >
           English
         </DropdownMenuItem>

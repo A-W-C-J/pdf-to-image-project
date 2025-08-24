@@ -1,42 +1,42 @@
-import { Metadata } from 'next';
-import { createClient } from '@/lib/supabase/server';
+import { Metadata } from 'next'
+import { createClient } from '@/lib/supabase/server'
 
 interface BlogPost {
-  id: string;
-  title: string;
-  title_en?: string;
-  excerpt: string;
-  excerpt_en?: string;
-  content: string;
-  content_en?: string;
-  tags: string[];
+  id: string
+  title: string
+  title_en?: string
+  excerpt: string
+  excerpt_en?: string
+  content: string
+  content_en?: string
+  tags: string[]
 
-  seo_keywords?: string[];
-  seo_keywords_en?: string[];
-  slug: string;
-  published: boolean;
-  created_at: string;
-  updated_at: string;
+  seo_keywords?: string[]
+  seo_keywords_en?: string[]
+  slug: string
+  published: boolean
+  created_at: string
+  updated_at: string
 }
 
 interface BlogLayoutProps {
-  children: React.ReactNode;
-  params: Promise<{ slug: string }>;
+  children: React.ReactNode
+  params: Promise<{ slug: string }>
 }
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
   try {
-    const { slug } = await params;
-    const supabase = await createClient();
+    const { slug } = await params
+    const supabase = await createClient()
     
     const { data: post, error } = await supabase
       .from('blog_posts')
       .select('*')
       .eq('slug', slug)
       .eq('published', true)
-      .single();
+      .single()
 
     if (error || !post) {
       return {
@@ -46,15 +46,15 @@ export async function generateMetadata(
           index: false,
           follow: true,
         },
-      };
+      }
     }
 
-    const blogPost = post as BlogPost;
+    const blogPost = post as BlogPost
     
     // 使用英文作为默认语言，中文作为备选
-    const title = blogPost.title_en || blogPost.title;
-    const description = blogPost.excerpt_en || blogPost.excerpt;
-    const keywords = blogPost.seo_keywords_en || blogPost.seo_keywords || [];
+    const title = blogPost.title_en || blogPost.title
+    const description = blogPost.excerpt_en || blogPost.excerpt
+    const keywords = blogPost.seo_keywords_en || blogPost.seo_keywords || []
     
     return {
       title: `${title} - PDF Tech Blog`,
@@ -101,13 +101,13 @@ export async function generateMetadata(
           'max-snippet': -1,
         },
       },
-    };
+    }
   } catch (error) {
-    console.error('Error generating metadata:', error);
+    console.error('Error generating metadata:', error)
     return {
       title: 'PDF Tech Blog',
       description: 'Technical blog about PDF processing, conversion, and best practices.',
-    };
+    }
   }
 }
 
@@ -116,5 +116,5 @@ export default function BlogPostLayout({ children }: BlogLayoutProps) {
     <>
       {children}
     </>
-  );
+  )
 }

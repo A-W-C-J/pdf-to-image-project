@@ -1,0 +1,77 @@
+// Button Stylus Module
+// 定义变量
+$primary-color = #000
+$secondary-color = #6b7280
+$outline-color = #d1d5db
+$hover-opacity = 0.9
+$transition-duration = 0.2s
+
+// 基础按钮样式
+.button
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  border-radius: 0.375rem
+  font-weight: 500
+  transition: all $transition-duration ease
+  cursor: pointer
+  border: 1px solid transparent
+  
+  &:focus
+    outline: 2px solid transparent
+    outline-offset: 2px
+    box-shadow: 0 0 0 2px var(--ring)
+    
+  &:disabled
+    opacity: 0.5
+    cursor: not-allowed
+
+// 变体样式
+.primary
+  background-color: var(--primary)
+  color: var(--primary-foreground)
+  
+  &:hover:not(:disabled)
+    background-color: var(--primary)
+    opacity: $hover-opacity
+
+.secondary
+  background-color: var(--secondary)
+  color: var(--secondary-foreground)
+  
+  &:hover:not(:disabled)
+    background-color: var(--secondary)
+    opacity: $hover-opacity
+
+.outline
+  border-color: var(--border)
+  background-color: transparent
+  color: var(--foreground)
+  
+  &:hover:not(:disabled)
+    background-color: var(--accent)
+    color: var(--accent-foreground)
+
+// 尺寸样式
+.sm
+  height: 2rem
+  padding: 0 0.75rem
+  font-size: 0.875rem
+
+.md
+  height: 2.5rem
+  padding: 0 1rem
+  font-size: 0.875rem
+
+.lg
+  height: 3rem
+  padding: 0 2rem
+  font-size: 1rem
+
+// 响应式设计
+@media (max-width: 768px)
+  .button
+    &.lg
+      height: 2.75rem
+      padding: 0 1.5rem
+      font-size: 0.9rem

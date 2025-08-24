@@ -4,6 +4,7 @@ import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { LanguageProvider } from "@/lib/i18n"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ErrorBoundary } from "@/components/error-boundary"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -79,7 +80,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="light" style={{ colorScheme: 'light' }}>
       <head>
         <meta name="baidu-site-verification" content="codeva-VojMtjt5ob" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -129,7 +130,9 @@ html {
           disableTransitionOnChange
         >
           <LanguageProvider>
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </LanguageProvider>
         </ThemeProvider>
       </body>

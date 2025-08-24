@@ -9,15 +9,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tag = decodeURIComponent(params.tag);
   
   // 获取该标签下的文章数量
-  const supabase = createClient();
+  const supabase = createClient()
   const { data: posts } = await supabase
     .from('blog_posts')
     .select('id, tags')
-    .eq('published', true);
+    .eq('published', true)
   
   const postCount = posts?.filter(post => 
     (post.tags && post.tags.includes(tag))
-  ).length || 0;
+  ).length || 0
 
   const title = `${tag} - PDF工具相关文章 | PDF to Image`;
   const titleEn = `${tag} - PDF Tools Articles | PDF to Image`;
@@ -57,7 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           width: 1200,
           height: 630,
           alt: `${tag} - PDF Tools Articles`,
-        },
+        }
       ],
     },
     twitter: {

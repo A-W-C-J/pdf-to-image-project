@@ -1,0 +1,45 @@
+// Language Switcher Component Styles
+// 定义变量
+$transition-duration = 0.2s
+
+// 下拉菜单项样式
+.menuItem
+  transition: background-color $transition-duration ease
+  cursor: pointer
+  
+  &.active
+    background-color: var(--accent)
+    
+  &.inactive
+    background-color: transparent
+    
+    &:hover
+      background-color: var(--accent)
+      opacity: 0.5
+
+// 触发按钮样式
+.triggerButton
+  gap: 0.5rem
+  background-color: transparent
+  transition: all $transition-duration ease
+  
+  &:hover
+    background-color: var(--accent)
+    
+  &:focus
+    box-shadow: 0 0 0 2px var(--ring)
+
+// 图标样式
+.icon
+  height: 1rem
+  width: 1rem
+  
+// 响应式设计
+@media (max-width: 768px)
+  .triggerButton
+    padding: 0.375rem 0.5rem
+    font-size: 0.875rem
+    
+  .icon
+    height: 0.875rem
+    width: 0.875rem

@@ -18,6 +18,10 @@ import { ThemeSwitcher } from "@/components/theme-switcher"
 import { useLanguage } from "@/lib/i18n"
 import Breadcrumb from "@/components/breadcrumb"
 import FAQSchema from "@/components/faq-schema"
+import { handleError, ErrorType, createAppError, getUserFriendlyMessage } from "@/lib/error-handler"
+import { validateFileOrThrow, validateFilesOrThrow, validateUrlOrThrow, Validator } from "@/lib/validation"
+import { useErrorHandler } from "@/components/error-boundary"
+import styles from "./page.module.styl"
 import GIF from "gif.js"
 import { createWorker } from "tesseract.js"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
@@ -181,6 +185,7 @@ const createGifAnimation = async (images: ConvertedImage[]): Promise<string> => 
 
 export default function PDFConverter() {
   const { language, setLanguage, t } = useLanguage()
+  const { handleError: handleErrorWithBoundary } = useErrorHandler()
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -926,10 +931,29 @@ export default function PDFConverter() {
     }
 
     if (files && files.length > 0) {
-      const pdfFiles = Array.from(files).filter(file => file.type === "application/pdf")
+      let pdfFiles: File[] = []
       
-      if (pdfFiles.length === 0) {
-        setError(t("selectValidPdf"))
+      try {
+        // 使用新的验证机制
+        validateFilesOrThrow(files, {
+          maxSize: 50 * 1024 * 1024, // 50MB
+          allowedTypes: ['application/pdf'],
+          maxFiles: isBatchMode ? 10 : 1
+        })
+        
+        pdfFiles = Array.from(files).filter(file => file.type === "application/pdf")
+        
+        if (pdfFiles.length === 0) {
+          throw createAppError(
+            t("selectValidPdf"),
+            ErrorType.VALIDATION,
+            'NO_PDF_FILES'
+          )
+        }
+      } catch (error) {
+        const errorInfo = handleError(error, { showToUser: true })
+        setError(getUserFriendlyMessage(error))
+        handleErrorWithBoundary(error instanceof Error ? error : new Error(String(error)))
         return
       }
       
@@ -952,7 +976,7 @@ export default function PDFConverter() {
       } else {
         // 批量模式 - 追加文件而不是替换
         const existingFileNames = new Set(selectedFiles.map(f => f.name))
-        const newFiles = pdfFiles.filter(file => !existingFileNames.has(file.name))
+        const newFiles = pdfFiles.filter((file: File) => !existingFileNames.has(file.name))
         
         if (newFiles.length === 0) {
           setError(language === "zh" ? "所选文件已存在于列表中" : "Selected files already exist in the list")
@@ -962,7 +986,7 @@ export default function PDFConverter() {
         const updatedFiles = [...selectedFiles, ...newFiles]
         setSelectedFiles(updatedFiles)
         
-        const newBatchFiles: BatchFile[] = newFiles.map(file => ({
+        const newBatchFiles: BatchFile[] = newFiles.map((file: File) => ({
           file,
           id: `${file.name}-${Date.now()}-${Math.random()}`,
           status: 'pending' as const,
@@ -986,15 +1010,27 @@ export default function PDFConverter() {
 
   const handleUrlChange = (url: string) => {
     setPdfUrl(url ?? "")
+    
+    // 如果URL不为空，进行验证
     if (url && url.trim()) {
-      setSelectedFile(null)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
+      try {
+        validateUrlOrThrow(url.trim())
+        setSelectedFile(null)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""
+        }
+        setError("") // 清除之前的错误
+      } catch (error) {
+        const errorInfo = handleError(error, { showToUser: true })
+        setError(getUserFriendlyMessage(error))
+        return
       }
+    } else {
+      setError("") // 清除错误当URL为空时
     }
+    
     setPdfPassword("")
     setShowPasswordInput(false)
-    setError("")
     setConvertedImages([])
     setProgress(0)
     setStatus("")
@@ -1002,18 +1038,43 @@ export default function PDFConverter() {
 
   const fetchPdfFromUrl = async (url: string): Promise<ArrayBuffer> => {
     setStatus(t("fetchingPdf"))
-    const response = await fetch(url)
+    
+    try {
+      const response = await fetch(url)
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      if (!response.ok) {
+        throw createAppError(
+          `HTTP ${response.status}: ${response.statusText}`,
+          ErrorType.NETWORK,
+          'FETCH_ERROR',
+          { status: response.status, statusText: response.statusText }
+        )
+      }
+
+      const contentType = response.headers.get("content-type")
+      if (contentType && !contentType.includes("application/pdf")) {
+        throw createAppError(
+          t("invalidPdfUrl"),
+          ErrorType.VALIDATION,
+          'INVALID_CONTENT_TYPE',
+          { contentType }
+        )
+      }
+
+      return await response.arrayBuffer()
+    } catch (error) {
+      // 如果是网络错误，重新包装
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw createAppError(
+          '网络连接失败，请检查网络连接后重试',
+          ErrorType.NETWORK,
+          'NETWORK_ERROR',
+          { originalError: error.message }
+        )
+      }
+      // 重新抛出已经包装的错误
+      throw error
     }
-
-    const contentType = response.headers.get("content-type")
-    if (contentType && !contentType.includes("application/pdf")) {
-      throw new Error(t("invalidPdfUrl"))
-    }
-
-    return await response.arrayBuffer()
   }
 
   // 批量处理PDF文件
@@ -1732,33 +1793,42 @@ export default function PDFConverter() {
           </CardHeader> */}
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <div className="flex space-x-1 rounded-lg bg-muted p-1">
+              <div className={styles.inputSourceContainer} role="tablist" aria-label={language === "zh" ? "输入源选择" : "Input source selection"}>
                 <button
                   type="button"
                   onClick={() => setInputSource("file")}
-                  className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    inputSource === "file"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                  className={`${styles.inputSourceButton} ${
+                    inputSource === "file" ? styles.active : styles.inactive
                   }`}
+                  role="tab"
+                  aria-selected={inputSource === "file"}
+                  aria-controls="input-content"
+                  id="file-tab"
+                  tabIndex={inputSource === "file" ? 0 : -1}
                 >
                   {t("localFile")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setInputSource("url")}
-                  className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    inputSource === "url"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                  className={`${styles.inputSourceButton} ${
+                    inputSource === "url" ? styles.active : styles.inactive
                   }`}
+                  role="tab"
+                  aria-selected={inputSource === "url"}
+                  aria-controls="input-content"
+                  id="url-tab"
+                  tabIndex={inputSource === "url" ? 0 : -1}
                 >
                   {t("urlInput")}
                 </button>
               </div>
               
               {inputSource === "file" && (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2" role="group" aria-labelledby="processing-mode-label">
+                  <span id="processing-mode-label" className="sr-only">
+                    {language === "zh" ? "处理模式选择" : "Processing mode selection"}
+                  </span>
                   <Checkbox
                     id="batch-mode"
                     checked={isBatchMode}
@@ -1787,14 +1857,19 @@ export default function PDFConverter() {
                       }
                     }}
                     disabled={isConverting}
+                    aria-describedby="batch-mode-description"
                   />
                   <Label htmlFor="batch-mode" className="text-sm font-medium">
                     {language === "zh" ? "批量处理模式" : "Batch Processing Mode"}
                   </Label>
+                  <span id="batch-mode-description" className="sr-only">
+                    {language === "zh" ? "启用后可以同时处理多个PDF文件" : "Enable to process multiple PDF files simultaneously"}
+                  </span>
                 </div>
               )}
             </div>
 
+            <div id="input-content" role="tabpanel" aria-labelledby={inputSource === "file" ? "file-tab" : "url-tab"}>
             {inputSource === "file" ? (
               <div
                 className={`flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
@@ -1804,14 +1879,30 @@ export default function PDFConverter() {
                 onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
+                role="button"
+                tabIndex={0}
+                aria-label={language === "zh" ? "拖拽PDF文件到此处或点击选择文件" : "Drag PDF files here or click to select files"}
+                aria-describedby="file-upload-description"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    fileInputRef.current?.click()
+                  }
+                }}
               >
                 <Label
                   htmlFor="file-input"
                   className="flex cursor-pointer flex-col items-center gap-2 text-muted-foreground"
                 >
-                  <Upload className="h-8 w-8" />
+                  <Upload className="h-8 w-8" aria-hidden="true" />
                   <span>{t("dragDrop")}</span>
                 </Label>
+                <div id="file-upload-description" className="sr-only">
+                  {language === "zh" 
+                    ? `支持PDF格式文件。${isBatchMode ? '可选择多个文件进行批量处理。' : '单文件模式，一次只能选择一个文件。'}` 
+                    : `Supports PDF format files. ${isBatchMode ? 'Multiple files can be selected for batch processing.' : 'Single file mode, only one file can be selected at a time.'}`
+                  }
+                </div>
                 <Input
                   ref={fileInputRef}
                   id="file-input"
@@ -1821,6 +1912,7 @@ export default function PDFConverter() {
                   onChange={handleFileSelect}
                   disabled={isConverting}
                   className="sr-only"
+                  aria-label={language === "zh" ? "选择PDF文件" : "Select PDF files"}
                 />
                 {!isBatchMode && selectedFile && (
                   <p className="text-sm text-muted-foreground">
@@ -1854,19 +1946,22 @@ export default function PDFConverter() {
                   value={pdfUrl}
                   onChange={(e) => handleUrlChange(e.target.value)}
                   disabled={isConverting}
+                  aria-describedby="pdf-url-description"
+                  aria-invalid={error ? "true" : "false"}
                 />
-                <p className="text-xs text-muted-foreground">{t("pdfUrlDesc")}</p>
+                <p id="pdf-url-description" className="text-xs text-muted-foreground">{t("pdfUrlDesc")}</p>
                 {pdfUrl.trim() && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
                     {t("urlReady")}: {pdfUrl}
                   </p>
                 )}
               </div>
             )}
+            </div>
 
             {showPasswordInput && (
-              <div className="space-y-2 border-t pt-4">
-                <Label htmlFor="pdf-password">{t("pdfPassword")}</Label>
+              <div className="space-y-2 border-t pt-4" role="group" aria-labelledby="password-section-label">
+                <Label id="password-section-label" htmlFor="pdf-password">{t("pdfPassword")}</Label>
                 <Input
                   id="pdf-password"
                   type="password"
@@ -1874,12 +1969,16 @@ export default function PDFConverter() {
                   value={pdfPassword}
                   onChange={(e) => setPdfPassword(e.target.value)}
                   disabled={isConverting}
+                  aria-describedby="password-description"
+                  autoComplete="current-password"
                 />
-                <p className="text-xs text-muted-foreground">{t("pdfPasswordDesc")}</p>
+                <p id="password-description" className="text-xs text-muted-foreground">{t("pdfPasswordDesc")}</p>
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <legend className="sr-only">{language === "zh" ? "转换设置" : "Conversion Settings"}</legend>
+              
               <div className="space-y-2">
                 <Label htmlFor="scale">{t("scale")}</Label>
                 <Input
@@ -1891,14 +1990,16 @@ export default function PDFConverter() {
                   value={scale.toString()}
                   onChange={(e) => setScale(Number.parseFloat(e.target.value) || 4.0)}
                   disabled={isConverting}
+                  aria-describedby="scale-description"
+                  aria-label={language === "zh" ? "图像缩放比例，范围1.0到5.0" : "Image scale ratio, range 1.0 to 5.0"}
                 />
-                <p className="text-xs text-muted-foreground">{t("scaleDesc")}</p>
+                <p id="scale-description" className="text-xs text-muted-foreground">{t("scaleDesc")}</p>
               </div>
 
               <div className="space-y-2">
-                <Label>{t("outputFormat")}</Label>
+                <Label id="format-label">{t("outputFormat")}</Label>
                 <Select value={format} onValueChange={setFormat} disabled={isConverting}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-labelledby="format-label" aria-describedby="format-description">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1910,12 +2011,13 @@ export default function PDFConverter() {
                     <SelectItem value="application/pdf">{t("searchablePdfFormat")}</SelectItem>
                   </SelectContent>
                 </Select>
+                <p id="format-description" className="sr-only">{language === "zh" ? "选择输出文件格式" : "Select output file format"}</p>
               </div>
 
               <div className="space-y-2">
-                <Label>{t("ocrLanguage")}</Label>
+                <Label id="ocr-language-label">{t("ocrLanguage")}</Label>
                 <Select value={ocrLanguage} onValueChange={setOcrLanguage} disabled={isConverting}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-labelledby="ocr-language-label" aria-describedby="ocr-language-description">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1924,19 +2026,22 @@ export default function PDFConverter() {
                     <SelectItem value="eng">{t("english")}</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">{t("ocrLanguageDesc")}</p>
+                <p id="ocr-language-description" className="text-xs text-muted-foreground">{t("ocrLanguageDesc")}</p>
               </div>
-            </div>
+            </fieldset>
 
-            <div className="space-y-4 border-t pt-4">
-              <div className="flex items-center space-x-2">
+            <fieldset className="space-y-4 border-t pt-4">
+              <legend className="sr-only">{language === "zh" ? "页面处理选项" : "Page Processing Options"}</legend>
+              <div className="flex items-center space-x-2" role="group" aria-labelledby="merge-pages-label">
                 <Checkbox
                   id="enable-merge"
                   checked={enableMerge || format === 'image/gif'}
                   onCheckedChange={(checked) => setEnableMerge(checked as boolean)}
                   disabled={isConverting || format === 'image/gif'}
+                  aria-describedby="merge-pages-description"
                 />
                 <Label 
+                  id="merge-pages-label"
                   htmlFor="enable-merge" 
                   className="text-sm font-medium"
                   title={format === 'image/gif' ? t("gifAutoMerge") : undefined}
@@ -1944,26 +2049,35 @@ export default function PDFConverter() {
                   {t("mergePages")}
                 </Label>
               </div>
-              <p className="text-xs text-muted-foreground pl-6">
+              <p id="merge-pages-description" className="text-xs text-muted-foreground pl-6">
                 {format === 'image/gif' ? t("gifAutoMerge") : t("mergePagesDesc")}
               </p>
-            </div>
+            </fieldset>
 
-            <div className="space-y-4 border-t pt-4">
-              <div className="flex items-center space-x-2">
+            <fieldset className="space-y-4 border-t pt-4">
+              <legend className="sr-only">{language === "zh" ? "水印设置" : "Watermark Settings"}</legend>
+              <div className="flex items-center space-x-2" role="group" aria-labelledby="watermark-label">
                 <Checkbox
                   id="enable-watermark"
                   checked={enableWatermark}
                   onCheckedChange={(checked) => setEnableWatermark(checked as boolean)}
                   disabled={isConverting}
+                  aria-describedby="watermark-description"
                 />
-                <Label htmlFor="enable-watermark" className="text-sm font-medium">
+                <Label id="watermark-label" htmlFor="enable-watermark" className="text-sm font-medium">
                   {t("addWatermark")}
                 </Label>
               </div>
+              <p id="watermark-description" className="sr-only">
+                {language === "zh" ? "为输出图像添加自定义水印" : "Add custom watermark to output images"}
+              </p>
 
               {enableWatermark && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6" role="group" aria-labelledby="watermark-options-label">
+                  <span id="watermark-options-label" className="sr-only">
+                    {language === "zh" ? "水印详细设置" : "Watermark Detail Settings"}
+                  </span>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="watermark-text">{t("watermarkText")}</Label>
                     <Input
@@ -1972,13 +2086,17 @@ export default function PDFConverter() {
                       onChange={(e) => setWatermarkText(e.target.value)}
                       disabled={isConverting}
                       placeholder={t("watermarkTextPlaceholder")}
+                      aria-describedby="watermark-text-description"
                     />
+                    <p id="watermark-text-description" className="sr-only">
+                      {language === "zh" ? "输入要显示在图像上的水印文字" : "Enter the watermark text to display on images"}
+                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>{t("watermarkPosition")}</Label>
+                    <Label id="watermark-position-label">{t("watermarkPosition")}</Label>
                     <Select value={watermarkPosition} onValueChange={setWatermarkPosition} disabled={isConverting}>
-                      <SelectTrigger>
+                      <SelectTrigger aria-labelledby="watermark-position-label">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -2004,11 +2122,16 @@ export default function PDFConverter() {
                       value={watermarkOpacity.toString()}
                       onChange={(e) => setWatermarkOpacity(Number.parseFloat(e.target.value) || 0.3)}
                       disabled={isConverting}
+                      aria-label={language === "zh" ? `水印透明度：${Math.round(watermarkOpacity * 100)}%` : `Watermark opacity: ${Math.round(watermarkOpacity * 100)}%`}
+                      aria-describedby="opacity-description"
                     />
+                    <p id="opacity-description" className="sr-only">
+                      {language === "zh" ? "调整水印的透明度，范围从10%到100%" : "Adjust watermark transparency, range from 10% to 100%"}
+                    </p>
                   </div>
                 </div>
               )}
-            </div>
+            </fieldset>
 
             {/* PDF高级选项 */}
             {format === 'application/pdf' && (
@@ -2181,7 +2304,11 @@ export default function PDFConverter() {
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex gap-2" role="group" aria-labelledby="action-buttons-label">
+              <span id="action-buttons-label" className="sr-only">
+                {language === "zh" ? "转换操作按钮" : "Conversion Action Buttons"}
+              </span>
+              
               <Button
                 onClick={convertPDF}
                 disabled={(
@@ -2190,14 +2317,36 @@ export default function PDFConverter() {
                     : (!selectedFile && !pdfUrl.trim())
                 ) || isConverting}
                 className="flex-1"
+                aria-describedby="convert-button-description"
+                aria-label={isConverting ? t("converting") : t("startConvert")}
               >
                 {isConverting ? t("converting") : t("startConvert")}
               </Button>
+              <span id="convert-button-description" className="sr-only">
+                {language === "zh" 
+                  ? (isBatchMode 
+                      ? "开始批量转换所选PDF文件为图像" 
+                      : "开始转换PDF文件为图像")
+                  : (isBatchMode 
+                      ? "Start batch converting selected PDF files to images" 
+                      : "Start converting PDF file to images")
+                }
+              </span>
+              
               {(selectedFile || pdfUrl.trim() || convertedImages.length > 0) && (
-                <Button variant="outline" onClick={clearAll} disabled={isConverting}>
+                <Button 
+                  variant="outline" 
+                  onClick={clearAll} 
+                  disabled={isConverting}
+                  aria-label={language === "zh" ? "清除所有文件和结果" : "Clear all files and results"}
+                  aria-describedby="clear-button-description"
+                >
                   <X className="h-4 w-4" />
                 </Button>
               )}
+              <span id="clear-button-description" className="sr-only">
+                {language === "zh" ? "清除所有已选择的文件和转换结果" : "Clear all selected files and conversion results"}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -2206,31 +2355,42 @@ export default function PDFConverter() {
           <Card>
             <CardContent className="pt-6">
               {error && (
-                <Alert variant="destructive">
+                <Alert variant="destructive" role="alert" aria-live="assertive">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
               {status && !error && !isBatchMode && (
-                <div className="space-y-2">
+                <div className="space-y-2" role="status" aria-live="polite">
                   <p className="text-sm font-medium">{status}</p>
-                  {isConverting && <Progress value={progress} className="w-full" />}
+                  {isConverting && (
+                    <Progress 
+                      value={progress} 
+                      className="w-full" 
+                      aria-label={language === "zh" ? `转换进度：${progress}%` : `Conversion progress: ${progress}%`}
+                    />
+                  )}
                 </div>
               )}
               {isBatchMode && batchProgress.totalFiles > 0 && (
-                <div className="space-y-4">
+                <div className="space-y-4" role="region" aria-labelledby="batch-progress-title">
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="font-medium">批量处理进度</span>
+                      <span id="batch-progress-title" className="font-medium">
+                        {language === "zh" ? "批量处理进度" : "Batch Processing Progress"}
+                      </span>
                       <div className="flex items-center gap-2">
-                        <span>{batchProgress.completedFiles}/{batchProgress.totalFiles} 文件</span>
+                        <span aria-live="polite">
+                          {batchProgress.completedFiles}/{batchProgress.totalFiles} {language === "zh" ? "文件" : "files"}
+                        </span>
                         {batchFiles.some(f => f.status === 'error') && !isConverting && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={retryAllFailedFiles}
                             className="h-6 px-2 text-xs"
+                            aria-label={language === "zh" ? "重试所有失败的文件" : "Retry all failed files"}
                           >
-                            重试失败
+                            {language === "zh" ? "重试失败" : "Retry Failed"}
                           </Button>
                         )}
                       </div>
@@ -2522,9 +2682,15 @@ export default function PDFConverter() {
                           width={800}
                           height={600}
                           unoptimized
+                          role="img"
                         />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                          <Button size="sm" onClick={() => downloadSingle(image)} className="flex items-center gap-1">
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2" role="group" aria-label={language === "zh" ? "图像操作" : "Image actions"}>
+                          <Button 
+                            size="sm" 
+                            onClick={() => downloadSingle(image)} 
+                            className="flex items-center gap-1"
+                            aria-label={language === "zh" ? `下载第${image.pageNumber}页图像` : `Download page ${image.pageNumber} image`}
+                          >
                             <Download className="h-3 w-3" />
                             {t("download")}
                           </Button>
@@ -2537,6 +2703,14 @@ export default function PDFConverter() {
                               ocrResult?.isExtracting ? 'bg-blue-600 hover:bg-blue-700' : 
                               ocrResult?.isCompleted && ocrResult?.text ? 'border-green-500 text-green-600 hover:bg-green-50' : ''
                             }`}
+                            aria-label={language === "zh" 
+                              ? (ocrResult?.isExtracting ? `正在识别第${image.pageNumber}页文字` : 
+                                 ocrResult?.isCompleted && ocrResult?.text ? `第${image.pageNumber}页文字已识别` : 
+                                 `识别第${image.pageNumber}页文字`)
+                              : (ocrResult?.isExtracting ? `Extracting text from page ${image.pageNumber}` : 
+                                 ocrResult?.isCompleted && ocrResult?.text ? `Text extracted from page ${image.pageNumber}` : 
+                                 `Extract text from page ${image.pageNumber}`)
+                            }
                           >
                             {ocrResult?.isExtracting ? (
                               <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
@@ -2561,9 +2735,9 @@ export default function PDFConverter() {
                         
                         {/* OCR提取状态显示 */}
                         {ocrResult?.isExtracting && (
-                          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
+                          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2" role="status" aria-live="polite">
                             <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent" aria-hidden="true"></div>
                               <span className="text-sm font-medium">{t("extractingText")}</span>
                             </div>
                             <div className="text-xs text-blue-600 dark:text-blue-400">
@@ -2580,16 +2754,30 @@ export default function PDFConverter() {
                               size="sm"
                               onClick={() => toggleOcrResult(image.pageNumber)}
                               className="w-full flex items-center gap-2"
+                              aria-expanded={isShowingOcr}
+                              aria-controls={`ocr-result-${image.pageNumber}`}
+                              aria-label={language === "zh" 
+                                ? (isShowingOcr ? `隐藏第${image.pageNumber}页的识别文字` : `显示第${image.pageNumber}页的识别文字`)
+                                : (isShowingOcr ? `Hide extracted text for page ${image.pageNumber}` : `Show extracted text for page ${image.pageNumber}`)
+                              }
                             >
                               <FileText className="h-4 w-4" />
                               {isShowingOcr ? (language === "zh" ? "隐藏文字" : "Hide Text") : (language === "zh" ? "显示提取的文字" : "Show Extracted Text")}
-                              {ocrResult.text && `(${ocrResult.text.length}字符)`}
+                              {ocrResult.text && `(${ocrResult.text.length}${language === "zh" ? "字符" : " characters"})`}
                             </Button>
                             
                             {isShowingOcr && ocrResult.text && (
-                              <div className="bg-gray-50 dark:bg-gray-900 border rounded-lg p-3 space-y-2">
+                              <div 
+                                id={`ocr-result-${image.pageNumber}`}
+                                className="bg-gray-50 dark:bg-gray-900 border rounded-lg p-3 space-y-2"
+                                role="region"
+                                aria-labelledby={`ocr-result-title-${image.pageNumber}`}
+                              >
                                 <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  <span 
+                                    id={`ocr-result-title-${image.pageNumber}`}
+                                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                                  >
                                     {language === "zh" ? "识别结果" : "OCR Result"}
                                   </span>
                                   <Button
@@ -2597,11 +2785,17 @@ export default function PDFConverter() {
                                     size="sm"
                                     onClick={() => copyTextToClipboard(ocrResult.text)}
                                     className="h-6 px-2"
+                                    aria-label={language === "zh" ? "复制识别的文字到剪贴板" : "Copy extracted text to clipboard"}
                                   >
                                     <Copy className="h-3 w-3" />
                                   </Button>
                                 </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                                <div 
+                                  className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap max-h-32 overflow-y-auto"
+                                  role="textbox"
+                                  aria-readonly="true"
+                                  aria-label={language === "zh" ? "识别出的文字内容" : "Extracted text content"}
+                                >
                                   {ocrResult.text}
                                 </div>
                               </div>

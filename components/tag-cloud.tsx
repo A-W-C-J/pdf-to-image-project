@@ -1,91 +1,91 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tag } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { type Language } from '@/lib/i18n';
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tag } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { type Language } from '@/lib/i18n'
+import styles from './tag-cloud.module.styl'
 
 interface TagWithCount {
-  name: string;
-  count: number;
+  name: string
+  count: number
 }
 
 interface TagCloudProps {
-  language: Language;
-  maxTags?: number;
+  language: Language
+  maxTags?: number
 }
 
 export default function TagCloud({ language, maxTags = 20 }: TagCloudProps) {
-  const [tags, setTags] = useState<TagWithCount[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tags, setTags] = useState<TagWithCount[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const supabase = createClient();
+  const supabase = createClient()
 
   useEffect(() => {
     async function fetchTags() {
       try {
-        setLoading(true);
+        setLoading(true)
 
         const { data: posts, error } = await supabase
           .from('blog_posts')
           .select('tags')
-          .eq('published', true);
+          .eq('published', true)
 
         if (error) {
-          console.error('Error fetching tags:', error);
-          return;
+          console.error('Error fetching tags:', error)
+          return
         }
 
         // 统计标签出现次数
-        const tagCounts: { [key: string]: number } = {};
+        const tagCounts: { [key: string]: number } = {}
         
         posts?.forEach(post => {
-          const postTags = post.tags;
+          const postTags = post.tags
           if (postTags && Array.isArray(postTags)) {
             postTags.forEach(tag => {
               if (tag && tag.trim()) {
-                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                tagCounts[tag] = (tagCounts[tag] || 0) + 1
               }
-            });
+            })
           }
-        });
+        })
 
         // 转换为数组并按使用频率排序
         const sortedTags = Object.entries(tagCounts)
           .map(([name, count]) => ({ name, count }))
           .sort((a, b) => b.count - a.count)
-          .slice(0, maxTags);
+          .slice(0, maxTags)
 
-        setTags(sortedTags);
+        setTags(sortedTags)
       } catch (err) {
-        console.error('Error fetching tags:', err);
+        console.error('Error fetching tags:', err)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
 
-    fetchTags();
-  }, [language, maxTags, supabase]);
+    fetchTags()
+  }, [language, maxTags, supabase])
 
   // 根据使用频率计算标签大小
   const getTagSize = (count: number, maxCount: number) => {
-    const ratio = count / maxCount;
-    if (ratio >= 0.8) return 'text-lg';
-    if (ratio >= 0.6) return 'text-base';
-    if (ratio >= 0.4) return 'text-sm';
-    return 'text-xs';
-  };
+    const ratio = count / maxCount
+    if (ratio >= 0.8) return styles.tagSizeLarge
+    if (ratio >= 0.6) return styles.tagSizeMedium
+    return styles.tagSizeSmall
+  }
 
   // 根据使用频率计算标签颜色
   const getTagVariant = (count: number, maxCount: number) => {
-    const ratio = count / maxCount;
-    if (ratio >= 0.8) return 'default' as const;
-    if (ratio >= 0.6) return 'secondary' as const;
-    return 'outline' as const;
-  };
+    const ratio = count / maxCount
+    if (ratio >= 0.8) return 'default' as const
+    if (ratio >= 0.6) return 'secondary' as const
+    return 'outline' as const
+  }
 
   if (loading) {
     return (
@@ -97,23 +97,23 @@ export default function TagCloud({ language, maxTags = 20 }: TagCloudProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="animate-pulse">
-            <div className="flex flex-wrap gap-2">
+          <div className={styles.loadingContainer}>
+            <div className={styles.loadingTags}>
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="h-6 bg-muted rounded w-16"></div>
+                <div key={i} className={styles.loadingTag}></div>
               ))}
             </div>
           </div>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   if (tags.length === 0) {
-    return null;
+    return null
   }
 
-  const maxCount = Math.max(...tags.map(tag => tag.count));
+  const maxCount = Math.max(...tags.map(tag => tag.count))
 
   return (
     <>
@@ -153,29 +153,29 @@ export default function TagCloud({ language, maxTags = 20 }: TagCloudProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
+          <div className={styles.tagContainer}>
             {tags.map((tag) => (
               <Badge 
                 key={tag.name} 
                 variant={getTagVariant(tag.count, maxCount)}
-                className={`${getTagSize(tag.count, maxCount)} hover:scale-105 transition-transform cursor-pointer`}
+                className={`${styles.tagBadge} ${getTagSize(tag.count, maxCount)}`}
               >
                 <Link 
                   href={`/blog/tag/${encodeURIComponent(tag.name)}`}
-                  className="flex items-center gap-1 hover:text-primary transition-colors"
+                  className={styles.tagLink}
                 >
                   {tag.name}
-                  <span className="text-xs opacity-70">({tag.count})</span>
+                  <span className={styles.tagCount}>({tag.count})</span>
                 </Link>
               </Badge>
             ))}
           </div>
           
           {tags.length >= maxTags && (
-            <div className="mt-4 text-center">
+            <div className={styles.viewMoreContainer}>
               <Link 
                 href="/blog"
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className={styles.viewMoreLink}
               >
                 {language === 'zh' ? '查看所有文章 →' : 'View all articles →'}
               </Link>
@@ -184,5 +184,5 @@ export default function TagCloud({ language, maxTags = 20 }: TagCloudProps) {
         </CardContent>
       </Card>
     </>
-  );
+  )
 }

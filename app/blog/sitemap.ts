@@ -10,7 +10,7 @@ interface BlogPost {
   content: string
   content_en?: string
   tags: string[]
-  tags_en?: string[]
+
   created_at: string
   updated_at?: string
   read_time?: number

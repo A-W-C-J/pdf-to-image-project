@@ -12,12 +12,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = createClient();
   const { data: posts } = await supabase
     .from('blog_posts')
-    .select('id, tags, tags_en')
+    .select('id, tags')
     .eq('published', true);
   
   const postCount = posts?.filter(post => 
-    (post.tags && post.tags.includes(tag)) || 
-    (post.tags_en && post.tags_en.includes(tag))
+    (post.tags && post.tags.includes(tag))
   ).length || 0;
 
   const title = `${tag} - PDF工具相关文章 | PDF to Image`;

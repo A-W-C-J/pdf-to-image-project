@@ -22,7 +22,6 @@ interface BlogPost {
   content: string
   content_en?: string
   tags?: string[]
-  tags_en?: string[]
   created_at: string
   read_time?: number
   slug: string
@@ -71,7 +70,6 @@ export default function BlogPage() {
           content: post.content || '',
           content_en: post.content_en,
           tags: Array.isArray(post.tags) ? post.tags : undefined,
-          tags_en: Array.isArray(post.tags_en) ? post.tags_en : undefined,
           created_at: post.created_at || new Date().toISOString(),
           read_time: post.read_time || 5,
           slug: post.slug || '',
@@ -107,7 +105,7 @@ export default function BlogPage() {
     const filtered = allPosts.filter((post) => {
       const title = language === "zh" ? post.title : (post.title_en || post.title)
       const excerpt = language === "zh" ? post.excerpt : (post.excerpt_en || post.excerpt)
-      const tags = language === "zh" ? (post.tags || []) : (post.tags_en || post.tags || [])
+      const tags = post.tags || []
 
       return (
         title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -196,7 +194,7 @@ export default function BlogPage() {
 
                 <CardContent className="space-y-4">
                   <div className="flex flex-wrap gap-1">
-                    {(language === "zh" ? (post.tags || []) : (post.tags_en || post.tags || [])).map((tag) => (
+                    {(post.tags || []).map((tag) => (
                       <Badge key={tag} variant="secondary" className="text-xs">
                         <Link href={`/blog/tag/${encodeURIComponent(tag)}`} className="hover:text-primary transition-colors">
                           {tag}

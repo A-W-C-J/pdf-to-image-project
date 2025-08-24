@@ -10,7 +10,7 @@ interface BlogPost {
   content: string;
   content_en?: string;
   tags: string[];
-  tags_en?: string[];
+
   seo_keywords?: string[];
   seo_keywords_en?: string[];
   slug: string;
@@ -76,7 +76,7 @@ export async function generateMetadata(
         siteName: 'PDF Tech Blog',
         publishedTime: blogPost.created_at,
         modifiedTime: blogPost.updated_at,
-        tags: blogPost.tags_en || blogPost.tags,
+        tags: blogPost.tags,
       },
       twitter: {
         card: 'summary_large_image',

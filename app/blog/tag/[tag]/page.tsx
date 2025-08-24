@@ -21,7 +21,7 @@ interface BlogPost {
   created_at: string;
   author?: string;
   tags?: string[];
-  tags_en?: string[];
+
   read_time?: number;
 }
 
@@ -65,7 +65,7 @@ export default function TagPage() {
 
         // 过滤包含指定标签的文章
         const filteredPosts = data?.filter(post => {
-          const tags = language === 'zh' ? post.tags : post.tags_en;
+          const tags = post.tags;
           return tags && tags.includes(tag);
         }) || [];
 
@@ -231,7 +231,7 @@ export default function TagPage() {
                       {language === 'zh' ? post.excerpt : (post.excerpt_en || post.excerpt)}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {(language === 'zh' ? post.tags : post.tags_en)?.map((tag) => (
+                      {post.tags?.map((tag) => (
                         <Badge key={tag} variant="secondary">
                           <Link href={`/blog/tag/${encodeURIComponent(tag)}`}>
                             {tag}

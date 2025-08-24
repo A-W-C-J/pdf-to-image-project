@@ -29,7 +29,6 @@ interface BlogPost {
   updated_at?: string;
   author?: string;
   tags?: string[];
-  tags_en?: string[];
   read_time?: number;
 }
 
@@ -203,9 +202,9 @@ export default function BlogPostPage() {
                 </div>
 
                 {/* 标签 */}
-                {((language === 'zh' ? post.tags : (post.tags_en || post.tags)) && (language === 'zh' ? post.tags : (post.tags_en || post.tags))!.length > 0) && (
-                  <div className="flex flex-wrap gap-2">
-                    {(language === 'zh' ? post.tags : (post.tags_en || post.tags))!.map((tag, index) => (
+                {(post.tags && post.tags.length > 0) && (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {post.tags.map((tag, index) => (
                       <Badge key={index} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
@@ -292,7 +291,7 @@ export default function BlogPostPage() {
           {/* 相关文章推荐 */}
           <RelatedArticles 
             currentSlug={post.slug}
-            currentTags={language === 'zh' ? post.tags : (post.tags_en || post.tags)}
+            currentTags={post.tags}
             language={language}
             maxArticles={3}
           />

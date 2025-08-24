@@ -15,7 +15,7 @@ interface BlogPost {
   excerpt: string
   excerpt_en?: string
   tags?: string[]
-  tags_en?: string[]
+
   created_at: string
   read_time?: number
   slug: string
@@ -73,7 +73,7 @@ export default function RelatedArticles({ currentSlug, currentTags = [], maxArti
         // 计算文章相关性得分
         const scoredPosts = allPosts.map(post => {
           let score = 0
-          const postTags = language === 'zh' ? (post.tags || []) : (post.tags_en || post.tags || [])
+          const postTags = post.tags || []
           
           // 基于标签相似性计算得分
           const commonTags = currentTags.filter(tag => 
@@ -207,7 +207,7 @@ export default function RelatedArticles({ currentSlug, currentTags = [], maxArti
           {relatedPosts.map((post) => {
             const title = language === 'zh' ? post.title : (post.title_en || post.title)
             const excerpt = language === 'zh' ? post.excerpt : (post.excerpt_en || post.excerpt)
-            const tags = language === 'zh' ? (post.tags || []) : (post.tags_en || post.tags || [])
+            const tags = post.tags || []
             
             return (
               <Link key={post.id} href={`/blog/${post.slug}`}>

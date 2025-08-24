@@ -31,7 +31,7 @@ export default function TagCloud({ language, maxTags = 20 }: TagCloudProps) {
 
         const { data: posts, error } = await supabase
           .from('blog_posts')
-          .select('tags, tags_en')
+          .select('tags')
           .eq('published', true);
 
         if (error) {
@@ -43,7 +43,7 @@ export default function TagCloud({ language, maxTags = 20 }: TagCloudProps) {
         const tagCounts: { [key: string]: number } = {};
         
         posts?.forEach(post => {
-          const postTags = language === 'zh' ? post.tags : (post.tags_en || post.tags);
+          const postTags = post.tags;
           if (postTags && Array.isArray(postTags)) {
             postTags.forEach(tag => {
               if (tag && tag.trim()) {

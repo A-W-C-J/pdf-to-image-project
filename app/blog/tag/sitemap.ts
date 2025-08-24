@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js"
 
 interface BlogPostTag {
   tags: string[]
-  tags_en?: string[]
   updated_at?: string
   created_at: string
 }
@@ -17,7 +16,7 @@ async function getAllTags(): Promise<{ tag: string; lastModified: Date }[]> {
     
     const { data: posts, error } = await supabase
       .from("blog_posts")
-      .select("tags, tags_en, updated_at, created_at")
+      .select("tags, updated_at, created_at")
       .eq("published", true)
     
     if (error) {
@@ -30,16 +29,8 @@ async function getAllTags(): Promise<{ tag: string; lastModified: Date }[]> {
     posts?.forEach((post: BlogPostTag) => {
       const postDate = new Date(post.updated_at || post.created_at)
       
-      // 处理中文标签
+      // 处理标签
       post.tags?.forEach(tag => {
-        const existingDate = tagMap.get(tag)
-        if (!existingDate || postDate > existingDate) {
-          tagMap.set(tag, postDate)
-        }
-      })
-      
-      // 处理英文标签
-      post.tags_en?.forEach(tag => {
         const existingDate = tagMap.get(tag)
         if (!existingDate || postDate > existingDate) {
           tagMap.set(tag, postDate)

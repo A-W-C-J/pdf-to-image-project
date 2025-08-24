@@ -22,20 +22,62 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     }
   }
 
+  const ogImageUrl = `/api/og?title=${encodeURIComponent(post.title)}&subtitle=${encodeURIComponent(post.excerpt || 'PDF Processing Tutorial')}`
+  const articleUrl = `https://www.pdf2img.top/blog/${decodedSlug}`
+
   return {
     title: `${post.title} | PDF to Image Converter`,
     description: post.excerpt || `Read about ${post.title} on our blog.`,
+    keywords: [
+      post.title,
+      'PDF processing',
+      'PDF conversion',
+      'PDF tools',
+      'document processing',
+      'PDF tutorial',
+      'PDF tips',
+      'online PDF tools'
+    ],
+    authors: [{ name: 'PDF to Image Team' }],
     openGraph: {
       title: post.title,
       description: post.excerpt || `Read about ${post.title} on our blog.`,
       type: 'article',
       publishedTime: post.created_at,
+      url: articleUrl,
+      siteName: 'PDF to Image Converter',
+      locale: 'en_US',
+      alternateLocale: ['zh_CN'],
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        }
+      ],
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.excerpt || `Read about ${post.title} on our blog.`,
-    }
+      images: [ogImageUrl],
+      creator: '@PDFtoImageTool',
+    },
+    alternates: {
+      canonical: articleUrl,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
   }
 }
 

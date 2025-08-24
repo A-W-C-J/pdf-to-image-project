@@ -3,12 +3,12 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+
 import { Input } from "@/components/ui/input"
-import { Search, Calendar, ArrowLeft } from "lucide-react"
+import { Search, Calendar } from "lucide-react"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
-import { translations, type Language, type TranslationKey } from "@/lib/i18n"
+import { useLanguage } from "@/lib/i18n"
 import { createClient } from "@/lib/supabase/client"
 import Breadcrumb from "@/components/breadcrumb"
 import TagCloud from "@/components/tag-cloud"
@@ -34,7 +34,7 @@ interface BlogPost {
 // 博客数据现在从 Supabase 数据库加载
 
 export default function BlogPage() {
-  const [language, setLanguage] = useState<Language>("en")
+  const { language, setLanguage } = useLanguage()
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [searchTerm, setSearchTerm] = useState("")
   const [filteredPosts, setFilteredPosts] = useState<BlogPost[]>([])
@@ -42,8 +42,6 @@ export default function BlogPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
-
-  const t = (key: TranslationKey): string => translations[language][key]
 
   useEffect(() => {
     const loadArticles = async () => {

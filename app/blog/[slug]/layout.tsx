@@ -111,7 +111,7 @@ export async function generateMetadata(
   }
 }
 
-export default function BlogPostLayout({ children, params }: BlogLayoutProps) {
+export default function BlogPostLayout({ children }: BlogLayoutProps) {
   return (
     <>
       {children}

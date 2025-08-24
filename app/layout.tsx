@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
+import { LanguageProvider } from "@/lib/i18n"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -118,7 +119,11 @@ html {
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
+      </body>
     </html>
   )
 }

@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, notFound } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, Clock, Tag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
-import { translations, type Language } from '@/lib/i18n';
+import { type Language } from '@/lib/i18n';
 import Breadcrumb from '@/components/breadcrumb';
 
 interface BlogPost {
@@ -36,7 +36,7 @@ export default function TagPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    const savedLanguage = localStorage.getItem('language') as Language;
+    const savedLanguage = localStorage.getItem('preferred-language') as Language;
     if (savedLanguage) {
       setLanguage(savedLanguage);
     }

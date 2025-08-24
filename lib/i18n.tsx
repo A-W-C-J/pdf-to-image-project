@@ -325,22 +325,25 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>(() => {
-    // Check localStorage first, then browser language
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("preferred-language") as Language
-      if (saved && (saved === "zh" || saved === "en")) {
-        return saved
-      }
-    }
-    return detectBrowserLanguage()
-  })
+  const [mounted, setMounted] = useState(false)
+  const [language, setLanguage] = useState<Language>("en") // Default to English for SSR
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    setMounted(true)
+    // Check localStorage first, then browser language
+    const saved = localStorage.getItem("preferred-language") as Language
+    if (saved && (saved === "zh" || saved === "en")) {
+      setLanguage(saved)
+    } else {
+      setLanguage(detectBrowserLanguage())
+    }
+  }, [])
+
+  useEffect(() => {
+    if (mounted) {
       localStorage.setItem("preferred-language", language)
     }
-  }, [language])
+  }, [language, mounted])
 
   const t = (key: TranslationKey): string => translations[language][key]
 

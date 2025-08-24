@@ -20,7 +20,7 @@ export default function FAQSchema({ faqs, language: propLanguage }: FAQSchemaPro
       setLanguage(propLanguage)
     } else {
       // 从localStorage获取语言设置
-      const savedLanguage = localStorage.getItem('language') as 'zh' | 'en'
+      const savedLanguage = localStorage.getItem('preferred-language') as 'zh' | 'en'
       if (savedLanguage) {
         setLanguage(savedLanguage)
       }

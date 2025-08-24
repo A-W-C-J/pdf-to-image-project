@@ -24,7 +24,7 @@ export default function Breadcrumb({ items, language: propLanguage }: Breadcrumb
       setLanguage(propLanguage)
     } else {
       // 从localStorage获取语言设置
-      const savedLanguage = localStorage.getItem('language') as 'zh' | 'en'
+      const savedLanguage = localStorage.getItem('preferred-language') as 'zh' | 'en'
       if (savedLanguage) {
         setLanguage(savedLanguage)
       }
@@ -51,7 +51,7 @@ export default function Breadcrumb({ items, language: propLanguage }: Breadcrumb
     ]
 
     let currentPath = ''
-    pathSegments.forEach((segment, index) => {
+    pathSegments.forEach((segment) => {
       currentPath += `/${segment}`
       
       let label = segment

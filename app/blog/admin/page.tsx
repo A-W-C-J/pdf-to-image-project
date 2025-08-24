@@ -167,9 +167,9 @@ export default function BlogAdminPage() {
       setIsCreating(false)
       setFormData({})
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving article:", error)
-      setError(error.message || "保存失败")
+      setError(error instanceof Error ? error.message : "保存失败")
     } finally {
       setLoading(false)
     }
@@ -193,9 +193,9 @@ export default function BlogAdminPage() {
       setPosts(posts.filter((post) => post.id !== id))
       setSuccess("文章已删除")
       setTimeout(() => setSuccess(""), 3000)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting article:", error)
-      setError(error.message || "删除失败")
+      setError(error instanceof Error ? error.message : "删除失败")
     } finally {
       setLoading(false)
     }
@@ -296,9 +296,9 @@ export default function BlogAdminPage() {
           }
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("AI generation error:", error)
-      setError(error.message || "AI生成失败，请稍后重试")
+      setError(error instanceof Error ? error.message : "AI生成失败，请稍后重试")
       setGenerationStatus("")
       setStreamingContent("")
     } finally {
@@ -544,7 +544,7 @@ export default function BlogAdminPage() {
             ) : posts.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">暂无博客文章</p>
-                <p className="text-sm text-muted-foreground mt-2">点击"新建文章"开始创建您的第一篇博客</p>
+                <p className="text-sm text-muted-foreground mt-2">点击&quot;新建文章&quot;开始创建您的第一篇博客</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">

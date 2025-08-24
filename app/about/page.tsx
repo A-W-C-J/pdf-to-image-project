@@ -1,19 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Github, ArrowLeft, Code, Users, Zap } from "lucide-react"
+import { Github, Code, Users, Zap } from "lucide-react"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
-import { translations, type Language } from "@/lib/i18n"
+import { useLanguage } from "@/lib/i18n"
 import Breadcrumb from "@/components/breadcrumb"
 
 export default function AboutPage() {
-  const [language, setLanguage] = useState<Language>("en")
+  const { language, setLanguage } = useLanguage()
   const [theme, setTheme] = useState<"light" | "dark">("light")
-  const t = (key: string): string => translations[language][key as keyof (typeof translations)["zh"]] || key
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark")

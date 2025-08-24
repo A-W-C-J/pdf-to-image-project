@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 
                     // 发送完成事件
                     controller.enqueue(`data: ${JSON.stringify({ type: "complete", data: blogData })}\n\n`)
-                  } catch (error) {
+                  } catch {
                     controller.enqueue(`data: ${JSON.stringify({ type: "error", message: "内容解析失败" })}\n\n`)
                   }
                   controller.close()
@@ -131,15 +131,15 @@ export async function POST(request: NextRequest) {
                     // 发送流式内容
                     controller.enqueue(`data: ${JSON.stringify({ type: "content", content: content })}\n\n`)
                   }
-                } catch (e) {
+                } catch {
                   // 忽略解析错误，继续处理下一行
                 }
               }
             }
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error("流式生成错误:", error)
-          controller.enqueue(`data: ${JSON.stringify({ type: "error", message: error.message || "AI生成失败" })}\n\n`)
+          controller.enqueue(`data: ${JSON.stringify({ type: "error", message: error instanceof Error ? error.message : "AI生成失败" })}\n\n`)
           controller.close()
         }
       },
@@ -152,9 +152,9 @@ export async function POST(request: NextRequest) {
         "Connection": "keep-alive",
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AI生成错误:", error)
-    return new Response(JSON.stringify({ error: error.message || "AI生成失败" }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "AI生成失败" }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     })

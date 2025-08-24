@@ -3,8 +3,9 @@
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -14,7 +15,7 @@ import { Download, FileImage, Upload, X, BookOpen, Github, User, Menu, FileText,
 import { Checkbox } from "@/components/ui/checkbox"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
-import { translations, type Language, type TranslationKey } from "@/lib/i18n"
+import { useLanguage } from "@/lib/i18n"
 import Breadcrumb from "@/components/breadcrumb"
 import FAQSchema from "@/components/faq-schema"
 import GIF from "gif.js"
@@ -42,9 +43,8 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-let analytics: any = null;
 if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
-  analytics = getAnalytics(app);
+  getAnalytics(app);
 } 
 interface ConvertedImage {
   dataUrl: string
@@ -116,7 +116,7 @@ const createGifAnimation = async (images: ConvertedImage[]): Promise<string> => 
     }
 
     // 获取第一张图片的尺寸
-    const firstImg = new Image()
+    const firstImg = new window.Image()
     firstImg.onload = () => {
       const gif = new GIF({
         workers: 2,
@@ -130,7 +130,7 @@ const createGifAnimation = async (images: ConvertedImage[]): Promise<string> => 
 
       // 预加载所有图片并转换为canvas
       images.forEach((image, index) => {
-        const img = new Image()
+        const img = new window.Image()
         img.onload = () => {
           const canvas = document.createElement('canvas')
           const ctx = canvas.getContext('2d', { willReadFrequently: true })!
@@ -180,9 +180,8 @@ const createGifAnimation = async (images: ConvertedImage[]): Promise<string> => 
 }
 
 export default function PDFConverter() {
-  const [language, setLanguage] = useState<Language>("en")
+  const { language, setLanguage, t } = useLanguage()
   const [theme, setTheme] = useState<"light" | "dark">("light")
-  const t = (key: TranslationKey): string => translations[language][key]
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark")
@@ -246,7 +245,6 @@ export default function PDFConverter() {
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
   const [summaryResult, setSummaryResult] = useState<string>('')
   const [isModelLoading, setIsModelLoading] = useState(false)
-  const [modelLoaded, setModelLoaded] = useState(false)
 
   // 图像质量检测函数
   const analyzeImageQuality = (imageData: ImageData) => {
@@ -283,7 +281,7 @@ export default function PDFConverter() {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas')
       const ctx = canvas.getContext('2d')!
-      const img = new Image()
+      const img = new window.Image()
       
       img.onload = () => {
         canvas.width = img.width
@@ -353,20 +351,17 @@ export default function PDFConverter() {
     
     try {
       setIsModelLoading(true)
-      setStatus(t("modelLoading"))
+      setStatus(t("loadingModel"))
       
       const selectedModel = "Llama-3.2-3B-Instruct-q4f32_1-MLC"
       
       const newEngine = await webllm.CreateMLCEngine(selectedModel, {
         initProgressCallback: (report: webllm.InitProgressReport) => {
-          setStatus(`${t("modelLoading")} ${Math.round(report.progress * 100)}%`)
-        },
-        context_window_size: 8192,
-        sliding_window_size: 4096
+          setStatus(`${t("loadingModel")} ${Math.round(report.progress * 100)}%`)
+        }
       })
       
       setEngine(newEngine)
-      setModelLoaded(true)
       setIsModelLoading(false)
       setStatus(t("modelLoaded"))
       
@@ -467,7 +462,7 @@ export default function PDFConverter() {
         // 设置OCR引擎参数
         await worker.setParameters(ocrParams)
         
-        const { data: { text } } = await worker.recognize(preprocessedImageUrl) as any
+        const { data: { text } } = await worker.recognize(preprocessedImageUrl)
         await worker.terminate()
         
         if (text.trim()) {
@@ -525,7 +520,14 @@ export default function PDFConverter() {
       // 设置OCR引擎参数
       await worker.setParameters(ocrParams)
       
-      const { data: { text, words } } = await worker.recognize(preprocessedImageUrl) as any
+      const result = await worker.recognize(preprocessedImageUrl)
+      const text = result.data.text
+      // Tesseract.js Page 类型中没有 words 属性，使用空数组
+      const words: Array<{
+        text: string
+        bbox: { x0: number; y0: number; x1: number; y1: number }
+        confidence: number
+      }> = []
       await worker.terminate()
 
       // 处理文字坐标信息
@@ -587,18 +589,7 @@ export default function PDFConverter() {
     }
   }
 
-  // 下载文本文件
-  const downloadTextFile = (text: string, pageNumber: number) => {
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `page-${pageNumber}-text.txt`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
+
 
   // 切换OCR结果显示
   const toggleOcrResult = (key: string | number) => {
@@ -657,7 +648,6 @@ export default function PDFConverter() {
               // 计算文字位置和大小（考虑页面边距）
               const x = word.bbox.x0 + pdfOptions.pageMargin
               const y = imageDims.height - word.bbox.y1 + pdfOptions.pageMargin // PDF坐标系Y轴翻转
-              const width = word.bbox.x1 - word.bbox.x0
               const height = word.bbox.y1 - word.bbox.y0
               
               // 计算合适的字体大小（使用配置的倍数）
@@ -795,7 +785,7 @@ export default function PDFConverter() {
           }
         }
         
-        const onImageError = (error: string | Event) => {
+        const onImageError = () => {
           if (hasError) return
           hasError = true
           reject(new Error('Failed to load image for merging'))
@@ -803,7 +793,7 @@ export default function PDFConverter() {
         
         // 加载所有图片
         images.forEach((image, index) => {
-          const img = new Image()
+          const img = new window.Image()
           img.onload = onImageLoad
           img.onerror = onImageError
           img.src = image.dataUrl
@@ -1472,7 +1462,7 @@ export default function PDFConverter() {
       // 如果启用了AI总结功能，执行全文OCR和总结
       if (enableSummary && images.length > 0) {
         try {
-          setStatus(t("extractingFullText"))
+          setStatus(t("extractingText"))
           const fullText = await extractFullTextFromImages(images)
           
           if (fullText.trim()) {
@@ -2187,7 +2177,7 @@ export default function PDFConverter() {
 
                       {isModelLoading && (
                         <div className="text-sm text-muted-foreground">
-                          {t("modelLoading")}
+                          {t("loadingModel")}
                         </div>
                       )}
                     </div>
@@ -2339,7 +2329,7 @@ export default function PDFConverter() {
                       link.download = 'pdf-summary.txt'
                       link.click()
                       URL.revokeObjectURL(url)
-                      setStatus(t("summaryDownloaded"))
+                      setStatus(t("downloadSummary"))
                     }}
                     variant="outline"
                     size="sm"
@@ -2437,10 +2427,13 @@ export default function PDFConverter() {
                           return (
                             <div key={`${batchFile.id}-${image.pageNumber}`} className="space-y-2">
                               <div className="relative group">
-                                <img
+                                <Image
                                   src={image.dataUrl || "/placeholder.svg"}
                                   alt={`${batchFile.file.name} - 第 ${image.pageNumber} 页`}
                                   className="w-full h-auto border rounded-lg shadow-sm"
+                                  width={500}
+                                  height={300}
+                                  unoptimized
                                 />
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
                                   <Button size="sm" onClick={() => downloadSingle(image)} className="flex items-center gap-1">
@@ -2527,10 +2520,13 @@ export default function PDFConverter() {
                   return (
                     <div key={image.pageNumber} className="space-y-2">
                       <div className="relative group">
-                        <img
+                        <Image
                           src={image.dataUrl || "/placeholder.svg"}
                           alt={`${t("page")} ${image.pageNumber} ${t("pageUnit")}`}
                           className="w-full h-auto border rounded-lg shadow-sm"
+                          width={800}
+                          height={600}
+                          unoptimized
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
                           <Button size="sm" onClick={() => downloadSingle(image)} className="flex items-center gap-1">

@@ -37,7 +37,7 @@ export default function RelatedArticles({ currentSlug, currentTags = [], maxArti
       setLanguage(propLanguage)
     } else {
       // 从localStorage获取语言设置
-      const savedLanguage = localStorage.getItem('language') as 'zh' | 'en'
+      const savedLanguage = localStorage.getItem('preferred-language') as 'zh' | 'en'
       if (savedLanguage) {
         setLanguage(savedLanguage)
       }
@@ -77,7 +77,7 @@ export default function RelatedArticles({ currentSlug, currentTags = [], maxArti
           
           // 基于标签相似性计算得分
           const commonTags = currentTags.filter(tag => 
-            postTags.some(postTag => 
+            postTags.some((postTag: string) => 
               postTag.toLowerCase().includes(tag.toLowerCase()) || 
               tag.toLowerCase().includes(postTag.toLowerCase())
             )
@@ -88,7 +88,7 @@ export default function RelatedArticles({ currentSlug, currentTags = [], maxArti
           const currentTitle = language === 'zh' ? post.title : (post.title_en || post.title)
           const titleWords = currentTitle.toLowerCase().split(/\s+/)
           currentTags.forEach(tag => {
-            if (titleWords.some(word => word.includes(tag.toLowerCase()))) {
+            if (titleWords.some((word: string) => word.includes(tag.toLowerCase()))) {
               score += 5
             }
           })

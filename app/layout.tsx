@@ -80,6 +80,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta name="baidu-site-verification" content="codeva-VojMtjt5ob" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/favicon.png" />

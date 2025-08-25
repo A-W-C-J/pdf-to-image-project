@@ -3273,7 +3273,7 @@ export default function PDFConverter() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <p className="text-sm text-muted-foreground">
-                {language === "zh" ? "© 2025 PDF工具集" : "© 202 PDF Tools"}
+                {language === "zh" ? "© 2025 PDF工具集" : "© 2025 PDF Tools"}
               </p>
              
             </div>

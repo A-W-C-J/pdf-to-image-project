@@ -28,166 +28,83 @@ import { useErrorHandler } from "@/components/error-boundary"
 import LatexRenderer from "@/components/latex-renderer"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import DocxRenderer from "@/components/docx-renderer"
-import GIF from "gif.js"
 import { createWorker } from "tesseract.js"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
+import GIF from "gif.js"
 import * as webllm from "@mlc-ai/web-llm"
-//firebase
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || ""
-};
+// 导入类型定义
+import type { 
+  ConvertedImage, 
+  OcrResult, 
+  BatchFile, 
+  BatchProgress,
+  PdfOptions,
+  SummaryOptions,
+  InputSource,
+  OutputFormat,
+  OcrLanguage,
+  DocumentFormat,
+  FormulaMode
+} from '@/types/pdf-converter-types'
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
-  getAnalytics(app);
-} 
-interface ConvertedImage {
-  dataUrl: string
-  pageNumber: number
-  type: string
-  fileName?: string // 添加文件名字段用于批量处理
-}
+// 导入常量
+import {
+  DEFAULT_SCALE,
+  DEFAULT_FORMAT,
+  DEFAULT_WATERMARK_TEXT,
+  DEFAULT_WATERMARK_POSITION,
+  DEFAULT_WATERMARK_OPACITY,
+  DEFAULT_OCR_LANGUAGE,
+  DEFAULT_PDF_OPTIONS,
+  DEFAULT_SUMMARY_OPTIONS,
+  DEFAULT_PAGE_SPACING,
+  DEFAULT_MERGE_MARGIN,
+  MAX_FILE_SIZE,
+  MAX_WORD_FILE_SIZE,
+  MAX_BATCH_FILES
+} from '@/lib/constants/pdf-converter-constants'
 
-interface OcrResult {
-  pageNumber: number
-  text: string
-  isExtracting: boolean
-  isCompleted: boolean
-  fileName?: string // 添加文件名字段用于批量处理
-  words?: Array<{
-    text: string
-    bbox: {
-      x0: number
-      y0: number
-      x1: number
-      y1: number
-    }
-    confidence: number
-  }> // 添加文字坐标信息用于可搜索PDF
-}
+// 导入工具函数
+import {
+  getFileExtension,
+  downloadSingle,
+  createAndDownloadZip,
+  copyTextToClipboard,
+  preprocessImageForOCR,
+  createGifAnimation,
+  applyWatermark
+} from '@/lib/utils/pdf-converter-utils'
 
-// 批量处理相关接口
-interface BatchFile {
-  file: File
-  id: string
-  status: 'pending' | 'processing' | 'completed' | 'error'
-  progress: number
-  convertedImages: ConvertedImage[]
-  ocrResults: OcrResult[]
-  error?: string
-}
+// 导入服务模块
+import {
+  fetchPdfFromUrl,
+  mergePages,
+  convertSinglePDF,
+  generateSearchablePdf
+} from '@/lib/services/pdf-processor'
 
-interface BatchProgress {
-  totalFiles: number
-  completedFiles: number
-  currentFile: string
-  overallProgress: number
-}
+import {
+  extractTextFromImage,
+  extractFullTextFromImages,
+  toggleOcrResult
+} from '@/lib/services/ocr-processor'
 
-// 获取文件扩展名的辅助函数
-const getFileExtension = (format: string): string => {
-  switch (format) {
-    case 'image/png':
-      return 'png'
-    case 'image/jpeg':
-      return 'jpg'
-    case 'image/tiff':
-      return 'tiff'
-    case 'image/gif':
-      return 'gif' // GIF格式输出真正的GIF文件
-    case 'image/bmp':
-      return 'png' // BMP格式转换为PNG输出
-    default:
-      return 'png'
-  }
-}
+import {
+  initializeWebLLM,
+  generateSummary,
+  generateAISummary
+} from '@/lib/services/ai-processor'
 
-// 创建GIF动画的辅助函数
-const createGifAnimation = async (images: ConvertedImage[]): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    if (images.length === 0) {
-      reject(new Error('No images to create GIF'))
-      return
-    }
+// 导入组件
+import { FileUploadArea, UrlInputArea } from '@/components/pdf-converter/FileUploadArea'
+import { TabsNavigation } from '@/components/pdf-converter/TabsNavigation'
 
-    // 获取第一张图片的尺寸
-    const firstImg = new window.Image()
-    firstImg.onload = () => {
-      const gif = new GIF({
-        workers: 2,
-        quality: 10,
-        width: firstImg.width,
-        height: firstImg.height
-      })
+// 初始化Firebase
+import '@/lib/firebase/firebase-init' 
+// 类型定义已移至 @/types/pdf-converter-types
 
-      let loadedCount = 0
-      const canvases: HTMLCanvasElement[] = []
-
-      // 预加载所有图片并转换为canvas
-      images.forEach((image, index) => {
-        const img = new window.Image()
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          const ctx = canvas.getContext('2d', { willReadFrequently: true })!
-          canvas.width = firstImg.width
-          canvas.height = firstImg.height
-          
-          // 绘制白色背景
-          ctx.fillStyle = 'white'
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
-          
-          // 绘制图片
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-          canvases[index] = canvas
-          
-          loadedCount++
-          if (loadedCount === images.length) {
-            // 所有图片加载完成，开始生成GIF
-            canvases.forEach(canvas => {
-              gif.addFrame(canvas, { delay: 1000 }) // 1秒延迟
-            })
-            
-            gif.on('finished', (blob: Blob) => {
-              const reader = new FileReader()
-              reader.onload = () => {
-                resolve(reader.result as string)
-              }
-              reader.onerror = () => {
-                reject(new Error('Failed to read GIF blob'))
-              }
-              reader.readAsDataURL(blob)
-            })
-            
-            gif.render()
-          }
-        }
-        img.onerror = () => {
-          reject(new Error(`Failed to load image ${index}`))
-        }
-        img.src = image.dataUrl
-      })
-    }
-    firstImg.onerror = () => {
-      reject(new Error('Failed to load first image'))
-    }
-    firstImg.src = images[0].dataUrl
-  })
-}
+// 工具函数已移至 @/lib/utils/pdf-converter-utils
 
 export default function PDFConverter() {
   const { language, setLanguage, t } = useLanguage()
@@ -202,11 +119,11 @@ export default function PDFConverter() {
   const [batchProgress, setBatchProgress] = useState<BatchProgress>({ totalFiles: 0, completedFiles: 0, currentFile: '', overallProgress: 0 })
   const [isBatchMode, setIsBatchMode] = useState(false)
   const [pdfUrl, setPdfUrl] = useState<string>("")
-  const [inputSource, setInputSource] = useState<"file" | "url">("file")
+  const [inputSource, setInputSource] = useState<InputSource>("file")
   const [pdfPassword, setPdfPassword] = useState<string>("")
   const [showPasswordInput, setShowPasswordInput] = useState(false)
-  const [scale, setScale] = useState<number>(4.0) // 提高默认缩放比例获得更高清图片
-  const [format, setFormat] = useState<string>("image/png")
+  const [scale, setScale] = useState<number>(DEFAULT_SCALE)
+  const [format, setFormat] = useState<OutputFormat>(DEFAULT_FORMAT as OutputFormat)
   const [isConverting, setIsConverting] = useState(false)
   const [convertedImages, setConvertedImages] = useState<ConvertedImage[]>([])
   const [progress, setProgress] = useState(0)
@@ -216,48 +133,37 @@ export default function PDFConverter() {
   const [isDragging, setIsDragging] = useState(false)
 
   const [enableWatermark, setEnableWatermark] = useState(false)
-  const [watermarkText, setWatermarkText] = useState<string>("WATERMARK")
-  const [watermarkPosition, setWatermarkPosition] = useState<string>("center")
-  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(0.3)
+  const [watermarkText, setWatermarkText] = useState<string>(DEFAULT_WATERMARK_TEXT)
+  const [watermarkPosition, setWatermarkPosition] = useState<string>(DEFAULT_WATERMARK_POSITION)
+  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(DEFAULT_WATERMARK_OPACITY)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   // 合并页面相关状态
   const [enableMerge, setEnableMerge] = useState(false)
-  // 智能默认值 - 不再需要用户配置
-  const pageSpacing = 20 // 页面间距
-  const mergeMargin = 30 // 边距
+  // 使用常量代替内嵌变量
+  const pageSpacing = DEFAULT_PAGE_SPACING
+  const mergeMargin = DEFAULT_MERGE_MARGIN
 
   // OCR相关状态
   const [ocrResults, setOcrResults] = useState<OcrResult[]>([])
-  const [ocrLanguage, setOcrLanguage] = useState<string>("chi_sim+eng")
+  const [ocrLanguage, setOcrLanguage] = useState<OcrLanguage>(DEFAULT_OCR_LANGUAGE as OcrLanguage)
   const [showOcrResults, setShowOcrResults] = useState<{ [key: string]: boolean }>({})
 
   // PDF相关状态
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null)
-  const [pdfOptions, setPdfOptions] = useState({
-    addBookmarks: true,
-    preserveQuality: true,
-    ocrConfidenceThreshold: 30,
-    fontSizeMultiplier: 1.0,
-    pageMargin: 50,
-    textLayerOpacity: 0.0,
-    enableTextSelection: true
-  })
+  const [pdfOptions, setPdfOptions] = useState<PdfOptions>(DEFAULT_PDF_OPTIONS)
 
   // AI总结相关状态
   const [enableSummary, setEnableSummary] = useState(false)
-  const [summaryOptions, setSummaryOptions] = useState({
-    language: 'auto',
-    length: 'medium'
-  })
+  const [summaryOptions, setSummaryOptions] = useState<SummaryOptions>(DEFAULT_SUMMARY_OPTIONS)
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
   const [summaryResult, setSummaryResult] = useState<string>('')
 
   // PDF转Word相关状态
   const [convertedWordUrl, setConvertedWordUrl] = useState<string | null>(null)
-  const [selectedFormat, setSelectedFormat] = useState<string>('docx')
-  const [selectedFormulaMode, setSelectedFormulaMode] = useState<string>('normal')
+  const [selectedFormat, setSelectedFormat] = useState<DocumentFormat>('docx')
+  const [selectedFormulaMode, setSelectedFormulaMode] = useState<FormulaMode>('normal')
   const [previewContent, setPreviewContent] = useState<string | null>(null)
   const [convertedWordContent, setConvertedWordContent] = useState<ArrayBuffer | null>(null)
   const [showPreview, setShowPreview] = useState<boolean>(false)
@@ -265,133 +171,10 @@ export default function PDFConverter() {
   const [showLoginDialog, setShowLoginDialog] = useState(false)
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
 
-  // 图像质量检测函数
-  const analyzeImageQuality = (imageData: ImageData) => {
-    const data = imageData.data
-    let totalBrightness = 0
-    let contrastSum = 0
-    const pixels = data.length / 4
-    
-    // 计算平均亮度
-    for (let i = 0; i < data.length; i += 4) {
-      const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3
-      totalBrightness += brightness
-    }
-    const avgBrightness = totalBrightness / pixels
-    
-    // 计算对比度
-    for (let i = 0; i < data.length; i += 4) {
-      const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3
-      contrastSum += Math.pow(brightness - avgBrightness, 2)
-    }
-    const contrast = Math.sqrt(contrastSum / pixels)
-    
-    return {
-      brightness: avgBrightness,
-      contrast: contrast,
-      isLowContrast: contrast < 30,
-      isDark: avgBrightness < 100,
-      isBright: avgBrightness > 200
-    }
-  }
-
-  // 图像预处理函数，提升OCR识别精度
-  const preprocessImageForOCR = async (imageDataUrl: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')!
-      const img = new window.Image()
-      
-      img.onload = () => {
-        canvas.width = img.width
-        canvas.height = img.height
-        
-        // 绘制原始图像
-        ctx.drawImage(img, 0, 0)
-        
-        // 获取图像数据
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const data = imageData.data
-        
-        // 分析图像质量
-        const quality = analyzeImageQuality(imageData)
-        
-        // 根据图像质量自动选择处理策略
-        for (let i = 0; i < data.length; i += 4) {
-          // 转换为灰度
-          const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2])
-          
-          let processed = gray
-          
-          // 根据图像特征选择不同的处理方式
-          if (quality.isLowContrast) {
-            // 低对比度图像：强化对比度
-            processed = Math.min(255, Math.max(0, (gray - 128) * 2.0 + 128))
-          } else if (quality.isDark) {
-            // 暗图像：提升亮度并增强对比度
-            processed = Math.min(255, gray * 1.3 + 30)
-            processed = Math.min(255, Math.max(0, (processed - 128) * 1.2 + 128))
-          } else if (quality.isBright) {
-            // 亮图像：降低亮度并保持对比度
-            processed = Math.max(0, gray * 0.8 - 20)
-            processed = Math.min(255, Math.max(0, (processed - 128) * 1.1 + 128))
-          } else {
-            // 正常图像：轻微增强对比度
-            processed = Math.min(255, Math.max(0, (gray - 128) * 1.2 + 128))
-          }
-          
-          // 自适应二值化
-          const threshold = quality.isDark ? 100 : quality.isBright ? 160 : 128
-          const binary = processed > threshold ? 255 : 0
-          
-          data[i] = binary     // R
-          data[i + 1] = binary // G
-          data[i + 2] = binary // B
-          // data[i + 3] 保持不变 (Alpha)
-        }
-        
-        // 将处理后的数据放回canvas
-        ctx.putImageData(imageData, 0, 0)
-        
-        // 返回处理后的图像数据URL
-        resolve(canvas.toDataURL('image/png'))
-      }
-      
-      img.src = imageDataUrl
-    })
-  }
-
   // WebLLM引擎实例
   const [engine, setEngine] = useState<webllm.MLCEngineInterface | null>(null)
 
-  // 初始化WebLLM引擎
-  const initializeWebLLM = async () => {
-    if (engine) return engine
-    
-    try {
-      setIsModelLoading(true)
-      setStatus(t("loadingModel"))
-      
-      const selectedModel = "Llama-3.2-3B-Instruct-q4f32_1-MLC"
-      
-      const newEngine = await webllm.CreateMLCEngine(selectedModel, {
-        initProgressCallback: (report: webllm.InitProgressReport) => {
-          setStatus(`${t("loadingModel")} ${Math.round(report.progress * 100)}%`)
-        }
-      })
-      
-      setEngine(newEngine)
-      setIsModelLoading(false)
-      setStatus(t("modelLoaded"))
-      
-      return newEngine
-    } catch (error) {
-      console.error('WebLLM initialization failed:', error)
-      setIsModelLoading(false)
-      setError(`模型加载失败: ${error instanceof Error ? error.message : String(error)}`)
-      throw error
-    }
-  }
+  // 已移至 @/lib/services/ai-processor
 
   // 生成文本总结
   const generateSummary = async (fullText: string): Promise<string> => {
@@ -399,7 +182,14 @@ export default function PDFConverter() {
       setIsGeneratingSummary(true)
       setStatus(t("generatingSummary"))
       
-      const llmEngine = await initializeWebLLM()
+      const llmEngine = await initializeWebLLM(
+        engine, 
+        setEngine, 
+        setIsModelLoading, 
+        setStatus, 
+        setError, 
+        t as (key: string) => string
+      )
       
       // 根据用户选择的语言和长度构建提示词
       const languagePrompt = summaryOptions.language === 'zh' ? '请用中文' : 
@@ -709,52 +499,7 @@ export default function PDFConverter() {
     }
   }
 
-  const applyWatermark = (canvas: HTMLCanvasElement, text: string, position: string, opacity: number) => {
-    const context = canvas.getContext("2d")!
-    const canvasWidth = canvas.width
-    const canvasHeight = canvas.height
-
-    context.save()
-
-    context.globalAlpha = opacity
-    context.fillStyle = "#000000"
-    context.font = `${Math.max(canvasWidth, canvasHeight) / 20}px Arial`
-    context.textAlign = "center"
-    context.textBaseline = "middle"
-
-    let x = canvasWidth / 2
-    let y = canvasHeight / 2
-
-    switch (position) {
-      case "top-left":
-        x = canvasWidth * 0.2
-        y = canvasHeight * 0.1
-        break
-      case "top-right":
-        x = canvasWidth * 0.8
-        y = canvasHeight * 0.1
-        break
-      case "bottom-left":
-        x = canvasWidth * 0.2
-        y = canvasHeight * 0.9
-        break
-      case "bottom-right":
-        x = canvasWidth * 0.8
-        y = canvasHeight * 0.9
-        break
-      case "center":
-      default:
-        x = canvasWidth / 2
-        y = canvasHeight / 2
-        break
-    }
-
-    context.translate(x, y)
-    context.rotate(-Math.PI / 6)
-    context.fillText(text, 0, 0)
-
-    context.restore()
-  }
+  // applyWatermark 函数已移至 @/lib/utils/pdf-converter-utils
 
   const mergePages = async (images: ConvertedImage[]): Promise<ConvertedImage> => {
     if (!images || images.length === 0) {
@@ -955,9 +700,9 @@ export default function PDFConverter() {
       try {
         // 使用新的验证机制
         validateFilesOrThrow(files, {
-          maxSize: 50 * 1024 * 1024, // 50MB
+          maxSize: MAX_FILE_SIZE,
           allowedTypes: ['application/pdf'],
-          maxFiles: isBatchMode ? 10 : 1
+          maxFiles: isBatchMode ? MAX_BATCH_FILES : 1
         })
         
         pdfFiles = Array.from(files).filter(file => file.type === "application/pdf")
@@ -1965,19 +1710,7 @@ export default function PDFConverter() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pdf-to-image" className="flex items-center gap-2">
-              <FileImage className="h-4 w-4" />
-              {language === "zh" ? "PDF转图片 + OCR识别" : "PDF to Image + OCR"}
-            </TabsTrigger>
-            <TabsTrigger value="pdf-to-word" className="flex items-center gap-2 relative">
-              <FileText className="h-4 w-4" />
-              {language === "zh" ? "PDF转文档格式" : "PDF to Document"}
-              <span className="absolute -top-1 -right-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-1.5 py-0.5 rounded-full font-semibold shadow-sm">
-                Pro
-              </span>
-            </TabsTrigger>
-          </TabsList>
+          <TabsNavigation language={language} />
 
           <TabsContent value="pdf-to-image">
             <Card>
@@ -2043,91 +1776,30 @@ export default function PDFConverter() {
 
             <div id="input-content" role="tabpanel" aria-labelledby={inputSource === "file" ? "file-tab" : "url-tab"}>
             {inputSource === "file" ? (
-              <div
-                className={`flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-                  isDragging ? "border-primary bg-muted" : "border-border"
-                }`}
+              <FileUploadArea
+                selectedFile={selectedFile}
+                selectedFiles={selectedFiles}
+                isBatchMode={isBatchMode}
+                isDragging={isDragging}
+                isConverting={isConverting}
+                fileInputRef={fileInputRef}
+                language={language}
+                t={t}
+                onFileSelect={handleFileSelect}
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                role="button"
-                tabIndex={0}
-                aria-label={language === "zh" ? "拖拽PDF文件到此处或点击选择文件" : "Drag PDF files here or click to select files"}
-                aria-describedby="file-upload-description"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    fileInputRef.current?.click()
-                  }
-                }}
-              >
-                <Label
-                  htmlFor="file-input"
-                  className="flex cursor-pointer flex-col items-center gap-2 text-muted-foreground"
-                >
-                  <Upload className="h-8 w-8" aria-hidden="true" />
-                  <span>{t("dragDrop")}</span>
-                </Label>
-                <div id="file-upload-description" className="sr-only">
-                  {language === "zh" 
-                    ? `支持PDF格式文件。${isBatchMode ? '可选择多个文件进行批量处理。' : '单文件模式，一次只能选择一个文件。'}` 
-                    : `Supports PDF format files. ${isBatchMode ? 'Multiple files can be selected for batch processing.' : 'Single file mode, only one file can be selected at a time.'}`
-                  }
-                </div>
-                <Input
-                  ref={fileInputRef}
-                  id="file-input"
-                  type="file"
-                  accept="application/pdf"
-                  multiple={isBatchMode}
-                  onChange={handleFileSelect}
-                  disabled={isConverting}
-                  className="sr-only"
-                  aria-label={language === "zh" ? "选择PDF文件" : "Select PDF files"}
-                />
-                {!isBatchMode && selectedFile && (
-                  <p className="text-sm text-muted-foreground">
-                    {t("selected")}: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </p>
-                )}
-                
-                {isBatchMode && selectedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">
-                      {language === "zh" ? `已选择 ${selectedFiles.length} 个文件` : `${selectedFiles.length} files selected`}
-                    </p>
-                    <div className="max-h-32 overflow-y-auto space-y-1">
-                      {selectedFiles.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
-                          <span className="truncate flex-1">{file.name}</span>
-                          <span className="ml-2 whitespace-nowrap">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              />
             ) : (
-              <div className="space-y-2">
-                <Label htmlFor="pdf-url">{t("pdfUrl")}</Label>
-                <Input
-                  id="pdf-url"
-                  type="url"
-                  placeholder={t("pdfUrlPlaceholder")}
-                  value={pdfUrl}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  disabled={isConverting}
-                  aria-describedby="pdf-url-description"
-                  aria-invalid={error ? "true" : "false"}
-                />
-                <p id="pdf-url-description" className="text-xs text-muted-foreground">{t("pdfUrlDesc")}</p>
-                {pdfUrl.trim() && (
-                  <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
-                    {t("urlReady")}: {pdfUrl}
-                  </p>
-                )}
-              </div>
+              <UrlInputArea
+                pdfUrl={pdfUrl}
+                isConverting={isConverting}
+                error={error}
+                language={language}
+                t={t}
+                onUrlChange={handleUrlChange}
+              />
             )}
             </div>
 
@@ -2170,7 +1842,7 @@ export default function PDFConverter() {
 
               <div className="space-y-2">
                 <Label id="format-label">{t("outputFormat")}</Label>
-                <Select value={format} onValueChange={setFormat} disabled={isConverting}>
+                <Select value={format} onValueChange={(value) => setFormat(value as OutputFormat)} disabled={isConverting}>
                   <SelectTrigger aria-labelledby="format-label" aria-describedby="format-description">
                     <SelectValue />
                   </SelectTrigger>
@@ -2188,7 +1860,7 @@ export default function PDFConverter() {
 
               <div className="space-y-2">
                 <Label id="ocr-language-label">{t("ocrLanguage")}</Label>
-                <Select value={ocrLanguage} onValueChange={setOcrLanguage} disabled={isConverting}>
+                <Select value={ocrLanguage} onValueChange={(value) => setOcrLanguage(value as OcrLanguage)} disabled={isConverting}>
                   <SelectTrigger aria-labelledby="ocr-language-label" aria-describedby="ocr-language-description">
                     <SelectValue />
                   </SelectTrigger>
@@ -3070,7 +2742,7 @@ export default function PDFConverter() {
                         {language === "zh" ? "输出格式" : "Output Format"}
                       </Label>
                       <Select value={selectedFormat} onValueChange={(value) => {
-                        setSelectedFormat(value)
+                        setSelectedFormat(value as DocumentFormat)
                         // 切换格式时重置转换状态
                         setConvertedWordUrl(null)
                         setPreviewContent(null)
@@ -3106,7 +2778,7 @@ export default function PDFConverter() {
                       <Label htmlFor="formula-mode-select">
                         {language === "zh" ? "公式模式" : "Formula Mode"}
                       </Label>
-                      <Select value={selectedFormulaMode} onValueChange={setSelectedFormulaMode}>
+                      <Select value={selectedFormulaMode} onValueChange={(value) => setSelectedFormulaMode(value as FormulaMode)}>
                         <SelectTrigger id="formula-mode-select">
                           <SelectValue />
                         </SelectTrigger>

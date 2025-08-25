@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useSubscription } from '@/lib/hooks/use-subscription'
 import { AuthButton } from './auth-modal'
 import {
   DropdownMenu,
@@ -12,13 +13,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { AvatarFallback, AvatarImage, AvatarWithBadge } from '@/components/ui/avatar'
 import { User, LogOut, Settings, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
 
 export function UserMenu() {
   const { user, isAuthenticated, signOut, getDisplayName, getAvatarUrl } = useAuth()
+  const { planType, getPlanDisplayName, getPlanColor, loading: subscriptionLoading } = useSubscription()
   const { t } = useLanguage()
   const [isSigningOut, setIsSigningOut] = useState(false)
 
@@ -43,25 +46,45 @@ export function UserMenu() {
   const avatarUrl = getAvatarUrl()
   const userEmail = user?.email
 
+  // 只有在有付费计划时才显示角标
+  const shouldShowBadge = !subscriptionLoading && planType !== 'free'
+  const badgeText = shouldShowBadge ? getPlanDisplayName() : undefined
+  const badgeColor = shouldShowBadge ? getPlanColor() : undefined
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
+          <AvatarWithBadge 
+            className="h-8 w-8" 
+            showBadge={shouldShowBadge}
+            badgeText={badgeText}
+            badgeColor={badgeColor}
+          >
             <AvatarImage src={avatarUrl || undefined} alt={displayName || t('userAvatar')} />
             <AvatarFallback>
               {displayName ? displayName.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
             </AvatarFallback>
-          </Avatar>
+          </AvatarWithBadge>
         </Button>
       </DropdownMenuTrigger>
       
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">
-              {displayName}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium leading-none">
+                {displayName}
+              </p>
+              {shouldShowBadge && (
+                <span className={cn(
+                  'text-xs px-2 py-0.5 rounded-full font-semibold',
+                  badgeColor
+                )}>
+                  {badgeText}
+                </span>
+              )}
+            </div>
             <p className="text-xs leading-none text-muted-foreground">
               {userEmail}
             </p>

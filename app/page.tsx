@@ -19,6 +19,7 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { UserMenu } from "@/components/auth/user-menu"
 import { useLanguage } from "@/lib/i18n"
+import { SubscriptionModal } from "@/components/subscription-modal"
 import Breadcrumb from "@/components/breadcrumb"
 import FAQSchema from "@/components/faq-schema"
 import { handleError, ErrorType, createAppError, getUserFriendlyMessage } from "@/lib/error-handler"
@@ -262,6 +263,7 @@ export default function PDFConverter() {
   const [showPreview, setShowPreview] = useState<boolean>(false)
   const [isModelLoading, setIsModelLoading] = useState(false)
   const [showLoginDialog, setShowLoginDialog] = useState(false)
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
 
   // 图像质量检测函数
   const analyzeImageQuality = (imageData: ImageData) => {
@@ -1400,6 +1402,7 @@ export default function PDFConverter() {
   const handlePdfToWordConvert = async () => {
     if (!selectedFile) return
 
+    // 设置初始加载状态
     setIsConverting(true)
     setError("")
     setConvertedWordUrl(null)
@@ -1407,7 +1410,32 @@ export default function PDFConverter() {
     setConvertedWordContent(null)
     setShowPreview(false)
     setProgress(0)
+    setStatus(language === "zh" ? "检查订阅状态..." : "Checking subscription status...")
+
+    // 检查用户订阅状态
+    try {
+      const response = await fetch('/api/subscription/check')
+      const result = await response.json()
+      
+      if (!result.canConvert) {
+        setIsConverting(false)
+        setStatus("")
+        setProgress(0)
+        setShowSubscriptionModal(true)
+        return
+      }
+    } catch (error) {
+      console.error('订阅检查失败:', error)
+      // 如果检查失败，显示订阅弹窗
+      setIsConverting(false)
+      setStatus("")
+      setProgress(0)
+      setShowSubscriptionModal(true)
+      return
+    }
+
     setStatus(language === "zh" ? "准备上传文件..." : "Preparing to upload file...")
+    setProgress(5)
 
     try {
       // 验证文件大小
@@ -3352,6 +3380,12 @@ export default function PDFConverter() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 订阅提示弹窗 */}
+      <SubscriptionModal 
+        open={showSubscriptionModal} 
+        onOpenChange={setShowSubscriptionModal}
+      />
     </div>
   )
 }

@@ -4,8 +4,11 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
+import { createSubscriptionMiddleware, recordConversionUsage } from '@/lib/subscription/subscription-checker'
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  
   try {
     // 验证用户身份
     const supabase = await createClient()
@@ -28,6 +31,21 @@ export async function POST(request: NextRequest) {
   
       return new Response(JSON.stringify({ error: '请选择PDF文件' }), {
         status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
+    // 检查订阅状态
+    const conversionType = 'pdf_to_word'
+    const { allowed, status } = await createSubscriptionMiddleware(user.id, conversionType)
+    
+    if (!allowed) {
+      return new Response(JSON.stringify({ 
+        error: status.message || '需要订阅才能使用此功能',
+        code: 'SUBSCRIPTION_REQUIRED',
+        subscriptionStatus: status
+      }), {
+        status: 403,
         headers: { 'Content-Type': 'application/json' }
       })
     }
@@ -70,6 +88,17 @@ export async function POST(request: NextRequest) {
       // 调用DOC2X API进行转换
       const convertResult = await convertPdfToWord(tempFilePath, apiKey)
       
+      // 记录转换使用情况
+      const processingTime = Date.now() - startTime
+      await recordConversionUsage(user.id, {
+        conversionType,
+        fileName: file.name,
+        fileSize: file.size,
+        success: convertResult.success,
+        errorMessage: convertResult.success ? undefined : convertResult.message,
+        processingTimeMs: processingTime
+      })
+      
       return new Response(JSON.stringify(convertResult), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
@@ -84,6 +113,29 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error('PDF转Word处理错误:', error)
+    
+    // 记录失败的转换使用情况
+    try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const formData = await request.formData()
+        const file = formData.get('file') as File
+        const processingTime = Date.now() - startTime
+        
+        await recordConversionUsage(user.id, {
+          conversionType: 'pdf_to_word',
+          fileName: file?.name,
+          fileSize: file?.size,
+          success: false,
+          errorMessage: error instanceof Error ? error.message : '未知错误',
+          processingTimeMs: processingTime
+        })
+      }
+    } catch (recordError) {
+      console.error('记录转换失败情况时出错:', recordError)
+    }
+    
     return new Response(JSON.stringify({ error: '服务器内部错误' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

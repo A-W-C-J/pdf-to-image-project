@@ -6,8 +6,11 @@ import { randomUUID } from 'crypto'
 import { existsSync } from 'fs'
 import AdmZip from 'adm-zip'
 import { createClient } from '@/lib/supabase/server'
+import { createSubscriptionMiddleware, recordConversionUsage } from '@/lib/subscription/subscription-checker'
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  
   try {
     // 验证用户身份
     const supabase = await createClient()
@@ -31,6 +34,21 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return new Response(JSON.stringify({ error: '请选择PDF文件' }), {
         status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
+    // 检查订阅状态
+    const conversionType = `pdf_to_${format}`
+    const { allowed, status } = await createSubscriptionMiddleware(user.id, conversionType)
+    
+    if (!allowed) {
+      return new Response(JSON.stringify({ 
+        error: status.message || '需要订阅才能使用此功能',
+        code: 'SUBSCRIPTION_REQUIRED',
+        subscriptionStatus: status
+      }), {
+        status: 403,
         headers: { 'Content-Type': 'application/json' }
       })
     }
@@ -86,15 +104,25 @@ export async function POST(request: NextRequest) {
       // 保存上传的文件到临时目录
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)
-      await writeFile(tempFilePath, buffer)
+      await writeFile(tempFilePath, new Uint8Array(buffer))
 
       // 调用转换函数
-      const result = await convertPdfToFile(tempFilePath, apiKey, format, formulaMode)
-      
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
+    const result = await convertPdfToFile(tempFilePath, apiKey, format, formulaMode)
+    
+    // 记录转换使用情况
+    const processingTime = Date.now() - startTime
+    await recordConversionUsage(user.id, {
+      conversionType,
+      fileName: file.name,
+      fileSize: file.size,
+      success: true,
+      processingTimeMs: processingTime
+    })
+    
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })
     } finally {
       // 清理临时文件
       try {
@@ -105,6 +133,30 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error('PDF转换错误:', error)
+    
+    // 记录失败的转换使用情况
+    try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const formData = await request.formData()
+        const file = formData.get('file') as File
+        const format = formData.get('format') as string || 'docx'
+        const processingTime = Date.now() - startTime
+        
+        await recordConversionUsage(user.id, {
+          conversionType: `pdf_to_${format}`,
+          fileName: file?.name,
+          fileSize: file?.size,
+          success: false,
+          errorMessage: error instanceof Error ? error.message : '未知错误',
+          processingTimeMs: processingTime
+        })
+      }
+    } catch (recordError) {
+      console.error('记录转换失败情况时出错:', recordError)
+    }
+    
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : '转换失败，请稍后重试' 
     }), {
@@ -388,7 +440,7 @@ async function extractAssetsFromZip(zipUrl: string, uuid: string): Promise<{ ass
     }
     
     const arrayBuffer = await response.arrayBuffer()
-    await writeFile(zipPath, Buffer.from(arrayBuffer))
+    await writeFile(zipPath, new Uint8Array(arrayBuffer))
     
     // 创建解压目录
     if (!existsSync(extractDir)) {
@@ -413,7 +465,7 @@ async function extractAssetsFromZip(zipUrl: string, uuid: string): Promise<{ ass
         }
         
         // 写入文件
-        await writeFile(entryPath, entry.getData())
+        await writeFile(entryPath, new Uint8Array(entry.getData()))
         
         // 如果是图片文件，记录URL映射
         const fileName = entry.entryName.toLowerCase()
@@ -631,7 +683,7 @@ async function extractDocxFromZip(zipUrl: string, uuid: string): Promise<ArrayBu
     await extractAssetsFromZip(zipUrl, uuid)
     
     console.log('DOCX内容提取完成')
-    return docxBuffer.buffer.slice(docxBuffer.byteOffset, docxBuffer.byteOffset + docxBuffer.byteLength)
+    return docxBuffer.buffer.slice(docxBuffer.byteOffset, docxBuffer.byteOffset + docxBuffer.byteLength) as ArrayBuffer
     
   } catch (error) {
     console.error('提取DOCX内容失败:', error)

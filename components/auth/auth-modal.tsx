@@ -133,7 +133,15 @@ export function AuthModal({ isOpen, onClose, view = 'sign_in' }: AuthModalProps)
               },
             }}
             providers={['google', 'github']}
-            redirectTo={typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : '/auth/callback'}
+            redirectTo={(() => {
+              if (typeof window === 'undefined') return '/auth/callback'
+              
+              // 使用环境变量配置的站点URL，如果没有则使用当前origin
+              const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+              const origin = siteUrl || window.location.origin
+              
+              return `${origin}/auth/callback`
+            })()}
           />
           
           <div className="flex justify-center space-x-2 text-sm">

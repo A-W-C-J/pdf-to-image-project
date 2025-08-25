@@ -170,6 +170,12 @@ export const translations = {
     loginRequiredDescription: "请先登录后再使用PDF转文档功能。",
     cancel: "取消",
     goToLogin: "去登录",
+    authError: "认证失败",
+    authErrorDescription: "登录过程中出现错误，请重试。",
+    backToHome: "返回首页",
+    retry: "重试",
+    autoRedirectMessage: "10秒后将自动跳转到首页",
+    tryAgain: "重新尝试",
   },
   en: {
     title: "PDF to Image Converter - Batch Processing & OCR",
@@ -337,6 +343,12 @@ export const translations = {
     loginRequiredDescription: "Please log in first to use the PDF to document conversion feature.",
     cancel: "Cancel",
     goToLogin: "Go to Login",
+    authError: "Authentication Failed",
+    authErrorDescription: "An error occurred during login, please try again.",
+    backToHome: "Back to Home",
+    retry: "Retry",
+    autoRedirectMessage: "Will automatically redirect to home page in 10 seconds",
+    tryAgain: "Try Again",
   },
 } as const
 

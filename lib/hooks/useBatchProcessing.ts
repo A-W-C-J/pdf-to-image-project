@@ -308,8 +308,8 @@ export function useBatchProcessing(config: UseBatchProcessingConfig = {}): UseBa
       ))
     })
     
-    const images = await processor.convertFromFile(file)
-    return { images }
+    const result = await processor.convertFromFile()
+    return result
   }
   
   // 重试单个文件

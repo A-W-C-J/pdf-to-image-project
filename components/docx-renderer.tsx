@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTheme } from 'next-themes'
 import mammoth from 'mammoth'
 
 interface DocxRendererProps {
@@ -12,6 +13,14 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
   const [htmlContent, setHtmlContent] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { theme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const isDark = mounted && theme === 'dark'
 
   useEffect(() => {
     const convertDocxToHtml = async () => {
@@ -62,8 +71,8 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
         .docx-content {
           font-family: 'Times New Roman', serif;
           line-height: 1.6;
-          color: #333;
-          background: white;
+          color: ${isDark ? '#e5e5e5' : '#333'};
+          background: ${isDark ? '#1a1a1a' : 'white'};
           padding: 2rem;
           border-radius: 8px;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -75,8 +84,8 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
           font-size: 2rem;
           font-weight: bold;
           margin: 1.5rem 0 1rem 0;
-          color: #1a1a1a;
-          border-bottom: 2px solid #e5e5e5;
+          color: ${isDark ? '#f0f0f0' : '#1a1a1a'};
+          border-bottom: 2px solid ${isDark ? '#404040' : '#e5e5e5'};
           padding-bottom: 0.5rem;
         }
         
@@ -84,14 +93,14 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
           font-size: 1.5rem;
           font-weight: bold;
           margin: 1.25rem 0 0.75rem 0;
-          color: #2a2a2a;
+          color: ${isDark ? '#e8e8e8' : '#2a2a2a'};
         }
         
         .docx-content :global(h3) {
           font-size: 1.25rem;
           font-weight: bold;
           margin: 1rem 0 0.5rem 0;
-          color: #3a3a3a;
+          color: ${isDark ? '#d8d8d8' : '#3a3a3a'};
         }
         
         .docx-content :global(p) {
@@ -112,22 +121,22 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
           width: 100%;
           border-collapse: collapse;
           margin: 1rem 0;
-          background: white;
+          background: ${isDark ? '#1a1a1a' : 'white'};
         }
         
         .docx-content :global(th), .docx-content :global(td) {
-          border: 1px solid #ddd;
+          border: 1px solid ${isDark ? '#404040' : '#ddd'};
           padding: 0.75rem;
           text-align: left;
         }
         
         .docx-content :global(th) {
-          background-color: #f8f9fa;
+          background-color: ${isDark ? '#2a2a2a' : '#f8f9fa'};
           font-weight: bold;
         }
         
         .docx-content :global(tr:nth-child(even)) {
-          background-color: #f9f9f9;
+          background-color: ${isDark ? '#252525' : '#f9f9f9'};
         }
         
         .docx-content :global(img) {
@@ -139,15 +148,15 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
         }
         
         .docx-content :global(blockquote) {
-          border-left: 4px solid #e5e5e5;
+          border-left: 4px solid ${isDark ? '#404040' : '#e5e5e5'};
           margin: 1rem 0;
           padding: 0.5rem 0 0.5rem 1rem;
-          background-color: #f8f9fa;
+          background-color: ${isDark ? '#2a2a2a' : '#f8f9fa'};
           font-style: italic;
         }
         
         .docx-content :global(code) {
-          background-color: #f1f3f4;
+          background-color: ${isDark ? '#2a2a2a' : '#f1f3f4'};
           padding: 0.125rem 0.25rem;
           border-radius: 3px;
           font-family: 'Courier New', monospace;
@@ -155,8 +164,8 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
         }
         
         .docx-content :global(pre) {
-          background-color: #f8f9fa;
-          border: 1px solid #e9ecef;
+          background-color: ${isDark ? '#2a2a2a' : '#f8f9fa'};
+          border: 1px solid ${isDark ? '#404040' : '#e9ecef'};
           border-radius: 4px;
           padding: 1rem;
           overflow-x: auto;
@@ -181,7 +190,7 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
         }
         
         .docx-content :global(a) {
-          color: #0066cc;
+          color: ${isDark ? '#66b3ff' : '#0066cc'};
           text-decoration: none;
         }
         
@@ -205,52 +214,6 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
           
           .docx-content :global(h3) {
             font-size: 1.1rem;
-          }
-        }
-        
-        @media (prefers-color-scheme: dark) {
-          .docx-content {
-            background: #1a1a1a;
-            color: #e5e5e5;
-          }
-          
-          .docx-content :global(h1) {
-            color: #f0f0f0;
-            border-bottom-color: #404040;
-          }
-          
-          .docx-content :global(h2) {
-            color: #e8e8e8;
-          }
-          
-          .docx-content :global(h3) {
-            color: #d8d8d8;
-          }
-          
-          .docx-content :global(th) {
-            background-color: #2a2a2a;
-          }
-          
-          .docx-content :global(tr:nth-child(even)) {
-            background-color: #252525;
-          }
-          
-          .docx-content :global(td), .docx-content :global(th) {
-            border-color: #404040;
-          }
-          
-          .docx-content :global(blockquote) {
-            border-left-color: #404040;
-            background-color: #2a2a2a;
-          }
-          
-          .docx-content :global(code) {
-            background-color: #2a2a2a;
-          }
-          
-          .docx-content :global(pre) {
-            background-color: #2a2a2a;
-            border-color: #404040;
           }
         }
       `}</style>

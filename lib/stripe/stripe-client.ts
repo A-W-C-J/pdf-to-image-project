@@ -3,8 +3,36 @@ import Stripe from 'stripe'
 // 在开发环境中，如果没有设置 Stripe 密钥，使用测试密钥或跳过初始化
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_dummy_key_for_development'
 
-if (!process.env.STRIPE_SECRET_KEY && process.env.NODE_ENV === 'production') {
-  throw new Error('STRIPE_SECRET_KEY is required in production')
+// 调试信息：检查环境变量
+console.log('Environment Debug Info:', {
+  NODE_ENV: process.env.NODE_ENV,
+  STRIPE_SECRET_KEY_EXISTS: !!process.env.STRIPE_SECRET_KEY,
+  STRIPE_SECRET_KEY_PREFIX: process.env.STRIPE_SECRET_KEY ? process.env.STRIPE_SECRET_KEY.substring(0, 7) + '...' : 'undefined'
+})
+
+// 验证生产环境的 Stripe 配置
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error(
+      'STRIPE_SECRET_KEY is required in production environment. ' +
+      'Please set the STRIPE_SECRET_KEY environment variable with a valid Stripe secret key.'
+    )
+  }
+  
+  if (!process.env.STRIPE_SECRET_KEY.startsWith('sk_live_') && !process.env.STRIPE_SECRET_KEY.startsWith('sk_test_')) {
+    throw new Error(
+      'Invalid STRIPE_SECRET_KEY format. ' +
+      'Stripe secret keys should start with "sk_live_" or "sk_test_".'
+    )
+  }
+  
+  // 在生产环境中警告使用测试密钥
+  if (process.env.STRIPE_SECRET_KEY.startsWith('sk_test_')) {
+    console.warn(
+      'WARNING: Using Stripe test key in production environment. ' +
+      'Please use a live key (sk_live_*) for production.'
+    )
+  }
 }
 
 export const stripe = new Stripe(stripeSecretKey, {

@@ -59,15 +59,9 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     checkUser()
-  }, [router, checkUser])
+  }, [checkUser])
 
-  useEffect(() => {
-    if (user) {
-      fetchUserSubscription()
-    }
-  }, [user])
-
-  const fetchUserSubscription = async () => {
+  const fetchUserSubscription = useCallback(async () => {
     if (!user) return
     
     try {
@@ -99,7 +93,13 @@ export default function SubscriptionPage() {
     } catch (error) {
       console.error('获取订阅信息异常:', error)
     }
-  }
+  }, [user, supabase])
+
+  useEffect(() => {
+    if (user) {
+      fetchUserSubscription()
+    }
+  }, [user, fetchUserSubscription])
 
   const handleSubscribe = async (planKey: string) => {
     if (!user) {

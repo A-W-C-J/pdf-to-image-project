@@ -6,10 +6,6 @@ import React from 'react'
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Upload } from "lucide-react"
-import { validateFilesOrThrow } from '@/lib/validation'
-import { handleError, ErrorType, createAppError, getUserFriendlyMessage } from '@/lib/error-handler'
-import { useErrorHandler } from '@/components/error-boundary'
-import { MAX_FILE_SIZE, MAX_BATCH_FILES } from '@/lib/constants/pdf-converter-constants'
 
 interface FileUploadAreaProps {
   selectedFile: File | null
@@ -19,7 +15,7 @@ interface FileUploadAreaProps {
   isConverting: boolean
   fileInputRef: React.RefObject<HTMLInputElement | null>
   language: string
-  t: any
+  t: (key: string) => string
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => void
   onDragEnter: (event: React.DragEvent<HTMLDivElement>) => void
   onDragLeave: (event: React.DragEvent<HTMLDivElement>) => void
@@ -115,8 +111,7 @@ interface UrlInputAreaProps {
   pdfUrl: string
   isConverting: boolean
   error: string
-  language: string
-  t: any
+  t: (key: string) => string
   onUrlChange: (url: string) => void
 }
 
@@ -124,7 +119,6 @@ export function UrlInputArea({
   pdfUrl,
   isConverting,
   error,
-  language,
   t,
   onUrlChange
 }: UrlInputAreaProps) {

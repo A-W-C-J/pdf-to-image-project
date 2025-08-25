@@ -10,7 +10,7 @@ import Link from 'next/link'
 
 export default function SubscriptionCancelPage() {
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [, setUser] = useState<{ id: string; email?: string } | null>(null)
   const router = useRouter()
   const supabase = createClient()
 

@@ -135,7 +135,7 @@ export const generateAISummary = async (
 
   try {
     setStatus(t("extractingText"))
-    const fullText = await extractFullTextFromImages(images, ocrLanguage as any, setStatus, t)
+    const fullText = await extractFullTextFromImages(images, ocrLanguage as 'eng' | 'chi_sim' | 'chi_tra', setStatus, t)
     
     if (fullText.trim()) {
       await generateSummary(

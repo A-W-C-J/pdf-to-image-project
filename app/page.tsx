@@ -22,15 +22,15 @@ import { useLanguage } from "@/lib/i18n"
 import { SubscriptionModal } from "@/components/subscription-modal"
 import Breadcrumb from "@/components/breadcrumb"
 import FAQSchema from "@/components/faq-schema"
+import { EnhancedSEOSchema } from "@/components/enhanced-seo-schema"
 import { handleError, ErrorType, createAppError, getUserFriendlyMessage } from "@/lib/error-handler"
 import { validateFilesOrThrow, validateUrlOrThrow } from "@/lib/validation"
 import { useErrorHandler } from "@/components/error-boundary"
 import LatexRenderer from "@/components/latex-renderer"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import DocxRenderer from "@/components/docx-renderer"
-import { createWorker } from "tesseract.js"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
-import GIF from "gif.js"
+import { createWorker } from "tesseract.js"
 import * as webllm from "@mlc-ai/web-llm"
 
 // 导入类型定义
@@ -61,16 +61,12 @@ import {
   DEFAULT_PAGE_SPACING,
   DEFAULT_MERGE_MARGIN,
   MAX_FILE_SIZE,
-  MAX_WORD_FILE_SIZE,
   MAX_BATCH_FILES
 } from '@/lib/constants/pdf-converter-constants'
 
 // 导入工具函数
 import {
   getFileExtension,
-  downloadSingle,
-  createAndDownloadZip,
-  copyTextToClipboard,
   preprocessImageForOCR,
   createGifAnimation,
   applyWatermark
@@ -78,27 +74,13 @@ import {
 
 // 导入服务模块
 import {
-  fetchPdfFromUrl,
-  mergePages,
-  convertSinglePDF,
-  generateSearchablePdf
-} from '@/lib/services/pdf-processor'
-
-import {
-  extractTextFromImage,
-  extractFullTextFromImages,
-  toggleOcrResult
-} from '@/lib/services/ocr-processor'
-
-import {
-  initializeWebLLM,
-  generateSummary,
-  generateAISummary
+  initializeWebLLM
 } from '@/lib/services/ai-processor'
 
 // 导入组件
 import { FileUploadArea, UrlInputArea } from '@/components/pdf-converter/FileUploadArea'
 import { TabsNavigation } from '@/components/pdf-converter/TabsNavigation'
+
 
 // 初始化Firebase
 import '@/lib/firebase/firebase-init' 
@@ -1708,7 +1690,6 @@ export default function PDFConverter() {
             <p className="text-sm text-muted-foreground">{t("privacy")}</p>
           </div>
         </div>
-
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsNavigation language={language} />
 
@@ -1784,7 +1765,7 @@ export default function PDFConverter() {
                 isConverting={isConverting}
                 fileInputRef={fileInputRef}
                 language={language}
-                t={t}
+                t={t as (key: string) => string}
                 onFileSelect={handleFileSelect}
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
@@ -1796,8 +1777,7 @@ export default function PDFConverter() {
                 pdfUrl={pdfUrl}
                 isConverting={isConverting}
                 error={error}
-                language={language}
-                t={t}
+                t={t as (key: string) => string}
                 onUrlChange={handleUrlChange}
               />
             )}
@@ -2968,6 +2948,7 @@ export default function PDFConverter() {
         </Tabs>
 
         <FAQSchema />
+        <EnhancedSEOSchema />
 
         <footer className="mt-12 pt-8 border-t border-border">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -2991,35 +2972,7 @@ export default function PDFConverter() {
           </div>
         </footer>
 
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "SoftwareApplication",
-              name: language === "zh" ? "PDF工具集" : "PDF Tools",
-              description:
-                language === "zh"
-                  ? "强大的PDF处理工具集，支持PDF转图片、PDF转Word等多种转换功能"
-                  : "Powerful PDF processing tools supporting PDF to image, PDF to Word and other conversion features",
-              url: "https://www.pdf2img.top",
-              applicationCategory: "UtilityApplication",
-              operatingSystem: "Web Browser",
-              offers: {
-                "@type": "Offer",
-                price: "0",
-                priceCurrency: "USD",
-              },
-              codeRepository: "https://github.com/A-W-C-J/pdf-to-image-project",
-              programmingLanguage: ["TypeScript", "JavaScript"],
-              runtimePlatform: "Web Browser",
-              author: {
-                "@type": "Organization",
-                name: "PDF Tools",
-              },
-            }),
-          }}
-        />
+
       </div>
 
       {/* 登录提示弹窗 */}

@@ -1,10 +1,28 @@
 // PDF处理服务模块
 
-import { ConvertedImage, ConversionResult, BatchFile, BatchProgress, PdfOptions } from '@/types/pdf-converter-types'
-import { createGifAnimation, applyWatermark } from '@/lib/utils/pdf-converter-utils'
+import { ConvertedImage, ConversionResult, BatchFile, PdfOptions } from '@/types/pdf-converter-types'
+import { applyWatermark, createGifAnimation } from '@/lib/utils/pdf-converter-utils'
 import { MERGE_QUALITY, DEFAULT_PAGE_SPACING, DEFAULT_MERGE_MARGIN } from '@/lib/constants/pdf-converter-constants'
 import { createAppError, ErrorType } from '@/lib/error-handler'
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
+
+// 动态导入PDF.js以优化LCP
+let pdfjsLib: typeof import('pdfjs-dist') | null = null
+const loadPDFJS = async () => {
+  if (!pdfjsLib) {
+    pdfjsLib = await import("pdfjs-dist")
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+  }
+  return pdfjsLib
+}
+
+// 动态导入PDF-lib以优化LCP
+let pdfLib: typeof import('pdf-lib') | null = null
+const loadPDFLib = async () => {
+  if (!pdfLib) {
+    pdfLib = await import("pdf-lib")
+  }
+  return pdfLib
+}
 
 /**
  * 从URL获取PDF文件
@@ -244,7 +262,7 @@ export const mergePages = async (
 }
 
 /**
- * 转换单个PDF文件
+ * 转换单个PDF文件（优化版本，使用动态导入）
  */
 export const convertSinglePDF = async (
   file: File, 
@@ -257,8 +275,8 @@ export const convertSinglePDF = async (
   fileId?: string,
   setBatchFiles?: React.Dispatch<React.SetStateAction<BatchFile[]>>
 ): Promise<ConversionResult> => {
-  const pdfjsLib = await import("pdfjs-dist")
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+  // 动态加载PDF.js以优化LCP
+  const pdfjsLib = await loadPDFJS()
 
   const arrayBuffer = await file.arrayBuffer()
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
@@ -321,17 +339,20 @@ export const convertSinglePDF = async (
 }
 
 /**
- * 生成可搜索PDF
+ * 生成可搜索PDF（优化版本，使用动态导入）
  */
 export const generateSearchablePdf = async (
   convertedImages: ConvertedImage[],
-  ocrResults: any[],
+  ocrResults: Array<{ pageNumber: number; words?: Array<{ text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }> }>,
   pdfOptions: PdfOptions,
   t: (key: string) => string
 ): Promise<string> => {
   if (convertedImages.length === 0) {
     throw new Error(t("noImagesAvailable"))
   }
+
+  // 动态加载PDF-lib以优化LCP
+  const { PDFDocument, rgb, StandardFonts } = await loadPDFLib()
 
   // 创建新的PDF文档
   const pdfDoc = await PDFDocument.create()

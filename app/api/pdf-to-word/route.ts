@@ -114,6 +114,38 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('PDF转Word处理错误:', error)
     
+    // 根据错误类型提供不同的用户友好提示
+    let userFriendlyMessage = '服务器内部错误'
+    
+    if (error instanceof Error) {
+      const errorMessage = error.message
+      
+      // 网络超时或连接错误
+      if (errorMessage.includes('timeout') || errorMessage.includes('abort') || errorMessage.includes('超时')) {
+        userFriendlyMessage = '上传超时，请检查网络连接后重试。海外用户建议使用VPN或等待网络状态较好时重试。'
+      }
+      // 上传失败
+      else if (errorMessage.includes('上传失败') || errorMessage.includes('upload')) {
+        userFriendlyMessage = '文件上传失败，可能是网络不稳定所致。建议：1. 检查网络连接 2. 尝试压缩文件大小 3. 海外用户使用VPN后重试'
+      }
+      // API密钥问题
+      else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        userFriendlyMessage = 'API密钥配置错误，请联系管理员'
+      }
+      // 文件太大
+      else if (errorMessage.includes('413') || errorMessage.includes('large')) {
+        userFriendlyMessage = '文件过大，请压缩后重试（建议小于100MB）'
+      }
+      // 服务器问题
+      else if (errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('503')) {
+        userFriendlyMessage = '转换服务暂时不可用，请稍后重试'
+      }
+      // 其他情况
+      else {
+        userFriendlyMessage = `转换过程中发生错误: ${errorMessage}。如果是海外用户且经常出现该问题，建议使用VPN或选择网络状态较好的时段重试。`
+      }
+    }
+    
     // 记录失败的转换使用情况
     try {
       const supabase = await createClient()
@@ -136,7 +168,20 @@ export async function POST(request: NextRequest) {
       console.error('记录转换失败情况时出错:', recordError)
     }
     
-    return new Response(JSON.stringify({ error: '服务器内部错误' }), {
+    return new Response(JSON.stringify({ 
+      error: userFriendlyMessage,
+      isNetworkIssue: error instanceof Error && (
+        error.message.includes('timeout') || 
+        error.message.includes('upload') || 
+        error.message.includes('上传失败')
+      ),
+      suggestions: [
+        '检查网络连接是否稳定',
+        '尝试压缩PDF文件大小',
+        '海外用户建议使用VPN',
+        '选择网络状态较好的时段重试'
+      ]
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
@@ -159,40 +204,51 @@ interface Doc2XResponse {
 
 async function convertPdfToWord(filePath: string, apiKey: string) {
   try {
-    // 1. 获取预上传URL
+    // 1. 获取预上传URL（包含网络检测）
     const preuploadResponse = await getPreuploadUrl(apiKey) as Doc2XResponse
     
     if (!preuploadResponse.success || !preuploadResponse.data?.uid || !preuploadResponse.data?.url) {
       throw new Error('获取上传URL失败')
     }
     
-    const { uid: uuid, url: uploadUrl } = preuploadResponse.data
+    const { uid: uuid, url: uploadUrl, networkInfo } = preuploadResponse.data as {
+      uid: string
+      url: string
+      networkInfo: { isOverseas: boolean; latency: number }
+    }
 
     if (!uploadUrl) {
       throw new Error('上传URL获取失败')
     }
 
-    // 2. 上传文件到获取的URL
-    await uploadFileToUrl(filePath, uploadUrl)
+    // 2. 读取文件并创建File对象
+    const fs = await import('fs')
+    const fileBuffer = await fs.promises.readFile(filePath)
+    const file = new File([fileBuffer], 'document.pdf', { type: 'application/pdf' })
+
+    // 3. 使用智能上传策略上传文件
+    console.log('开始智能上传文件...')
+    await uploadFileWithOptimization(file, uploadUrl, networkInfo)
     
-    // 3. 等待文件解析完成
+    // 4. 等待文件解析完成
     await waitForParseComplete(uuid, apiKey)
     
-    // 4. 开始转换
+    // 5. 开始转换
     const convertResponse = await startFileConversion(uuid, apiKey)
     
     if (!convertResponse.success) {
       throw new Error('转换启动失败')
     }
 
-    // 5. 轮询转换状态并获取结果（使用原始的uuid）
+    // 6. 轮询转换状态并获取结果（使用原始的uuid）
     const result = await pollConversionResult(uuid, apiKey)
     
     return {
       success: true,
       data: {
         uuid,
-        downloadUrl: result.url
+        downloadUrl: result.url,
+        networkOptimized: networkInfo.isOverseas ? '使用海外优化策略' : '使用标准上传策略'
       }
     }
   } catch (error) {
@@ -204,53 +260,177 @@ async function convertPdfToWord(filePath: string, apiKey: string) {
   }
 }
 
+// 网络优化配置
+const NETWORK_CONFIG = {
+  TIMEOUT: 60000, // 60秒超时
+  RETRY_COUNT: 3, // 重试3次
+  RETRY_DELAY: 2000, // 重试延迟2秒
+  CHUNK_SIZE: 5 * 1024 * 1024, // 5MB分片大小
+}
+
+// 检测用户网络环境
+async function detectNetworkCondition() {
+  const startTime = Date.now()
+  try {
+    await fetch('https://www.aliyun.com/favicon.ico', { 
+      method: 'HEAD',
+      signal: AbortSignal.timeout(5000)
+    })
+    const latency = Date.now() - startTime
+    return {
+      isOverseas: latency > 2000, // 延迟超过2秒认为是海外用户
+      latency
+    }
+  } catch {
+    return { isOverseas: true, latency: 9999 }
+  }
+}
+
 // 获取预上传URL
 async function getPreuploadUrl(apiKey: string) {
   console.log('开始获取预上传URL，API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'undefined')
   
-  const response = await fetch('https://v2.doc2x.noedgeai.com/api/v2/parse/preupload', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
+  // 检测网络环境
+  const networkInfo = await detectNetworkCondition()
+  console.log('网络环境检测:', networkInfo)
+  
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), NETWORK_CONFIG.TIMEOUT)
+  
+  try {
+    const response = await fetch('https://v2.doc2x.noedgeai.com/api/v2/parse/preupload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      signal: controller.signal
+    })
+
+    console.log('预上传URL响应状态:', response.status)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('预上传URL请求失败:', response.status, errorText)
+      throw new Error(`获取预上传URL失败: ${response.status} - ${errorText}`)
     }
-  })
 
-  console.log('预上传URL响应状态:', response.status)
-  
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('预上传URL请求失败:', response.status, errorText)
-    throw new Error(`获取预上传URL失败: ${response.status} - ${errorText}`)
-  }
-
-  const result = await response.json()
-  console.log('预上传URL响应:', result)
-  
-  if (result.code !== 'success') {
-    console.error('预上传URL API返回错误:', result)
-    throw new Error(`获取预上传URL失败: ${result.message || '未知错误'}`)
-  }
-  
-  return {
-    success: true,
-    data: result.data
+    const result = await response.json()
+    console.log('预上传URL响应:', result)
+    
+    if (result.code !== 'success') {
+      console.error('预上传URL API返回错误:', result)
+      throw new Error(`获取预上传URL失败: ${result.message || '未知错误'}`)
+    }
+    
+    return {
+      success: true,
+      data: {
+        ...result.data,
+        networkInfo // 附加网络信息用于后续优化
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
-// 上传文件到指定URL
-async function uploadFileToUrl(filePath: string, uploadUrl: string) {
-  const fs = await import('fs')
-  const fileBuffer = await fs.promises.readFile(filePath)
+// 智能上传策略：根据文件大小和网络环境选择上传策略
+async function uploadFileWithOptimization(file: File, uploadUrl: string, networkInfo: { isOverseas: boolean; latency: number }) {
+  const fileSize = file.size
+  const isLargeFile = fileSize > NETWORK_CONFIG.CHUNK_SIZE
+  const isOverseas = networkInfo.isOverseas
   
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    body: fileBuffer
-  })
+  console.log(`文件大小: ${(fileSize / 1024 / 1024).toFixed(2)}MB, 海外用户: ${isOverseas}, 大文件: ${isLargeFile}`)
   
-  if (!response.ok) {
-    throw new Error(`文件上传失败: ${response.status}`)
+  // 海外用户或大文件使用分片上传
+  if (isOverseas || isLargeFile) {
+    return uploadFileWithRetry(file, uploadUrl, {
+      retryCount: isOverseas ? 5 : NETWORK_CONFIG.RETRY_COUNT,
+      timeout: isOverseas ? 120000 : NETWORK_CONFIG.TIMEOUT,
+      chunkUpload: isLargeFile
+    })
+  } else {
+    // 国内用户小文件直接上传
+    return uploadFileWithRetry(file, uploadUrl, {
+      retryCount: NETWORK_CONFIG.RETRY_COUNT,
+      timeout: NETWORK_CONFIG.TIMEOUT,
+      chunkUpload: false
+    })
   }
+}
+
+// 带重试机制的上传函数
+async function uploadFileWithRetry(file: File, uploadUrl: string, options: {
+  retryCount: number
+  timeout: number
+  chunkUpload: boolean
+}) {
+  let lastError: Error | null = null
+  
+  for (let i = 0; i <= options.retryCount; i++) {
+    try {
+      console.log(`尝试上传 ${i + 1}/${options.retryCount + 1}`)
+      
+      if (options.chunkUpload) {
+        return await uploadFileInChunks(file, uploadUrl, options.timeout)
+      } else {
+        return await uploadFileDirect(file, uploadUrl, options.timeout)
+      }
+      
+    } catch (error) {
+      lastError = error as Error
+      console.error(`上传尝试 ${i + 1} 失败:`, error)
+      
+      // 最后一次尝试失败，直接抛出错误
+      if (i === options.retryCount) {
+        throw lastError
+      }
+      
+      // 等待一段时间后重试，逐次增加延迟
+      const delay = NETWORK_CONFIG.RETRY_DELAY * Math.pow(2, i)
+      console.log(`等待 ${delay}ms 后重试...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  
+  throw lastError || new Error('上传失败')
+}
+
+// 直接上传
+async function uploadFileDirect(file: File, uploadUrl: string, timeout: number) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+  
+  try {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT', // 阿里云OSS使用PUT方法
+      body: file, // 直接传文件内容
+      signal: controller.signal,
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream'
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`上传失败: ${response.status} ${response.statusText}`)
+    }
+    
+    console.log('文件上传成功')
+    return { success: true }
+    
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+// 分片上传（简化版，实际需要根据阿里云OSS的分片上传API调整）
+async function uploadFileInChunks(file: File, uploadUrl: string, timeout: number) {
+  console.log('开始分片上传...')
+  
+  // 注意：这里是简化实现，实际需要根据阿里云OSS的分片上传API进行调整
+  // 目前先回退到直接上传，但用更长的超时时间
+  return uploadFileDirect(file, uploadUrl, timeout * 2)
 }
 
 // 等待文件解析完成

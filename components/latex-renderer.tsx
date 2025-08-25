@@ -21,7 +21,7 @@ export function LatexRenderer({ content, className = '' }: LatexRendererProps) {
         // Split content by lines and render each line
         const lines = content.split('\n')
         
-        lines.forEach((line, index) => {
+        lines.forEach((line) => {
           const lineDiv = document.createElement('div')
           lineDiv.className = 'mb-2'
           
@@ -34,7 +34,7 @@ export function LatexRenderer({ content, className = '' }: LatexRendererProps) {
                 errorColor: '#cc0000',
                 strict: false
               })
-            } catch (error) {
+            } catch {
               // If rendering fails, show as plain text
               lineDiv.textContent = line
               lineDiv.className += ' text-gray-600 font-mono text-sm'

@@ -121,3 +121,30 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Supabase Auth UI 黑暗模式修复 */
+@layer components {
+  .supabase-auth-ui_ui input {
+    @apply bg-background text-foreground border-border;
+  }
+  
+  .supabase-auth-ui_ui input:focus {
+    @apply border-ring;
+  }
+  
+  .supabase-auth-ui_ui label {
+    @apply text-foreground;
+  }
+  
+  .supabase-auth-ui_ui .supabase-auth-ui_ui-button {
+    @apply text-foreground;
+  }
+  
+  .dark .supabase-auth-ui_ui input {
+    @apply bg-background text-foreground border-border;
+  }
+  
+  .dark .supabase-auth-ui_ui label {
+    @apply text-foreground;
+  }
+}

@@ -3,10 +3,24 @@ import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { randomUUID } from 'crypto'
-import FormData from 'form-data'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
+    // 验证用户身份
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return new Response(JSON.stringify({ 
+        error: '请先登录后再使用PDF转文档功能',
+        code: 'UNAUTHORIZED'
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
     const formData = await request.formData()
     const file = formData.get('file') as File
 

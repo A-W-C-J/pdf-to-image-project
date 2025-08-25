@@ -64,7 +64,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
               {children}
             </blockquote>
           ),
-          code: ({ inline, children, ...props }: any) => {
+          code: ({ inline, children }: { inline?: boolean; children?: React.ReactNode }) => {
             if (inline) {
               return (
                 <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono text-red-600 dark:text-red-400">

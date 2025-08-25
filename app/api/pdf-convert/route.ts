@@ -1,16 +1,28 @@
 import { type NextRequest } from 'next/server'
-import { writeFile, unlink, readFile, mkdir } from 'fs/promises'
+import { writeFile, unlink, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { randomUUID } from 'crypto'
-import { createWriteStream } from 'fs'
-import { pipeline } from 'stream/promises'
-import { createReadStream } from 'fs'
 import { existsSync } from 'fs'
 import AdmZip from 'adm-zip'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
+    // 验证用户身份
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return new Response(JSON.stringify({ 
+        error: '请先登录后再使用PDF转换功能',
+        code: 'UNAUTHORIZED'
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
     const formData = await request.formData()
     const file = formData.get('file') as File
     const format = formData.get('format') as string || 'docx'
@@ -102,19 +114,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-interface Doc2XResponse {
-  success: boolean
-  message?: string
-  data?: {
-    uuid?: string
-    url?: string
-    uid?: string
-    taskId?: string
-    status?: string
-    downloadUrl?: string
-    [key: string]: unknown
-  }
-}
+
 
 async function convertPdfToFile(filePath: string, apiKey: string, format: string, formulaMode: string) {
   try {
@@ -133,7 +133,7 @@ async function convertPdfToFile(filePath: string, apiKey: string, format: string
     console.log('文件解析完成')
     
     // 4. 启动转换
-    const convertResponse = await startFileConversion(uuid, apiKey, format, formulaMode)
+    await startFileConversion(uuid, apiKey, format, formulaMode)
     console.log('转换启动成功')
     
     // 5. 轮询转换结果
@@ -220,7 +220,7 @@ async function uploadFileToUrl(filePath: string, uploadUrl: string) {
   
   const response = await fetch(uploadUrl, {
     method: 'PUT',
-    body: fileStream as any,
+    body: fileStream as unknown as ReadableStream,
     duplex: 'half'
   } as RequestInit)
   
@@ -445,7 +445,7 @@ async function extractMarkdownFromZip(zipUrl: string, uuid: string): Promise<str
     console.log('开始处理Markdown压缩包:', zipUrl)
     
     // 解压所有资源文件
-    const { assetUrls, extractDir } = await extractAssetsFromZip(zipUrl, uuid)
+    const { assetUrls } = await extractAssetsFromZip(zipUrl, uuid)
     
     // 查找Markdown文件
     const zip = new AdmZip(Buffer.from(await (await fetch(zipUrl)).arrayBuffer()))
@@ -501,7 +501,7 @@ async function extractTexFromZip(zipUrl: string, uuid: string): Promise<string> 
     console.log('开始处理TEX压缩包:', zipUrl)
     
     // 解压所有资源文件
-    const { assetUrls, extractDir } = await extractAssetsFromZip(zipUrl, uuid)
+    const { assetUrls } = await extractAssetsFromZip(zipUrl, uuid)
     
     // 查找TEX文件
     const zip = new AdmZip(Buffer.from(await (await fetch(zipUrl)).arrayBuffer()))

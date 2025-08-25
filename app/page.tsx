@@ -14,8 +14,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, FileImage, Upload, X, BookOpen, Github, User, Menu, FileText, Copy } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeSwitcher } from "@/components/theme-switcher"
+import { UserMenu } from "@/components/auth/user-menu"
 import { useLanguage } from "@/lib/i18n"
 import Breadcrumb from "@/components/breadcrumb"
 import FAQSchema from "@/components/faq-schema"
@@ -259,6 +261,7 @@ export default function PDFConverter() {
   const [convertedWordContent, setConvertedWordContent] = useState<ArrayBuffer | null>(null)
   const [showPreview, setShowPreview] = useState<boolean>(false)
   const [isModelLoading, setIsModelLoading] = useState(false)
+  const [showLoginDialog, setShowLoginDialog] = useState(false)
 
   // 图像质量检测函数
   const analyzeImageQuality = (imageData: ImageData) => {
@@ -1488,7 +1491,11 @@ export default function PDFConverter() {
       let errorMessage = language === "zh" ? "转换过程中发生错误" : "An error occurred during conversion"
       
       if (error instanceof Error) {
-        if (error.message.includes('API密钥')) {
+        if (error.message.includes('请先登录') || error.message.includes('请先登陆')) {
+          // 显示登录提示弹窗
+          setShowLoginDialog(true)
+          return
+        } else if (error.message.includes('API密钥')) {
           errorMessage = language === "zh" ? "API密钥配置错误，请联系管理员" : "API key configuration error, please contact administrator"
         } else if (error.message.includes('文件大小')) {
           errorMessage = error.message
@@ -1818,6 +1825,21 @@ export default function PDFConverter() {
     }
   }
 
+  // PDF转文档功能的清除函数
+  const clearWordConversion = () => {
+    setSelectedFile(null)
+    setConvertedWordUrl(null)
+    setConvertedWordContent(null)
+    setPreviewContent(null)
+    setShowPreview(false)
+    setProgress(0)
+    setStatus("")
+    setError("")
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
   const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     setIsDragging(true)
@@ -1858,6 +1880,7 @@ export default function PDFConverter() {
         <div className="flex gap-2">
           <ThemeSwitcher language={language} />
           <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
+          <UserMenu />
         </div>
       </div>
 
@@ -1894,6 +1917,9 @@ export default function PDFConverter() {
               </div>
               <div className="h-10 flex items-center">
                 <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
+              </div>
+              <div className="h-10 flex items-center">
+                <UserMenu />
               </div>
             </div>
           </div>
@@ -3010,72 +3036,70 @@ export default function PDFConverter() {
 
 
                   {/* 格式选择器 */}
-                  {selectedFile && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="format-select">
-                          {language === "zh" ? "输出格式" : "Output Format"}
-                        </Label>
-                        <Select value={selectedFormat} onValueChange={(value) => {
-                          setSelectedFormat(value)
-                          // 切换格式时重置转换状态
-                          setConvertedWordUrl(null)
-                          setPreviewContent(null)
-                          setShowPreview(false)
-                        }}>
-                          <SelectTrigger id="format-select">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="docx">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4" />
-                                <span>Word (.docx)</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="md">
-                              <div className="flex items-center gap-2">
-                                <BookOpen className="h-4 w-4" />
-                                <span>Markdown (.md)</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="tex">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4" />
-                                <span>LaTeX (.tex)</span>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="formula-mode-select">
-                          {language === "zh" ? "公式模式" : "Formula Mode"}
-                        </Label>
-                        <Select value={selectedFormulaMode} onValueChange={setSelectedFormulaMode}>
-                          <SelectTrigger id="formula-mode-select">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="normal">
-                              {language === "zh" ? "标准模式" : "Normal Mode"}
-                            </SelectItem>
-                            <SelectItem value="dollar">
-                              {language === "zh" ? "美元符号模式" : "Dollar Sign Mode"}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="format-select">
+                        {language === "zh" ? "输出格式" : "Output Format"}
+                      </Label>
+                      <Select value={selectedFormat} onValueChange={(value) => {
+                        setSelectedFormat(value)
+                        // 切换格式时重置转换状态
+                        setConvertedWordUrl(null)
+                        setPreviewContent(null)
+                        setShowPreview(false)
+                      }}>
+                        <SelectTrigger id="format-select">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="docx">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              <span>Word (.docx)</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="md">
+                            <div className="flex items-center gap-2">
+                              <BookOpen className="h-4 w-4" />
+                              <span>Markdown (.md)</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="tex">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              <span>LaTeX (.tex)</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="formula-mode-select">
+                        {language === "zh" ? "公式模式" : "Formula Mode"}
+                      </Label>
+                      <Select value={selectedFormulaMode} onValueChange={setSelectedFormulaMode}>
+                        <SelectTrigger id="formula-mode-select">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">
+                            {language === "zh" ? "标准模式" : "Normal Mode"}
+                          </SelectItem>
+                          <SelectItem value="dollar">
+                            {language === "zh" ? "美元符号模式" : "Dollar Sign Mode"}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
                   {/* 转换按钮 */}
-                  {selectedFile && (
+                  <div className="flex gap-2">
                     <Button 
                       onClick={handlePdfToWordConvert}
-                      disabled={isConverting}
-                      className="w-full"
+                      disabled={!selectedFile || isConverting}
+                      className="flex-1"
                     >
                       {isConverting ? (
                         <>
@@ -3086,7 +3110,18 @@ export default function PDFConverter() {
                         language === "zh" ? "开始转换" : "Start Conversion"
                       )}
                     </Button>
-                  )}
+                    
+                    {(selectedFile || convertedWordUrl) && (
+                      <Button 
+                        variant="outline" 
+                        onClick={clearWordConversion} 
+                        disabled={isConverting}
+                        aria-label={language === "zh" ? "清除文件和结果" : "Clear file and results"}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
 
                   {/* 进度显示 */}
                   {isConverting && (
@@ -3238,8 +3273,11 @@ export default function PDFConverter() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <p className="text-sm text-muted-foreground">
-                {language === "zh" ? "© 2024 PDF工具集" : "© 2024 PDF Tools"}
+                {language === "zh" ? "© 2025 PDF工具集" : "© 202 PDF Tools"}
               </p>
+             
+            </div>
+            <div className="text-xs text-muted-foreground">
               <a
                 href="https://github.com/A-W-C-J/pdf-to-image-project"
                 target="_blank"
@@ -3249,9 +3287,6 @@ export default function PDFConverter() {
                 <Github className="h-4 w-4" />
                 {language === "zh" ? "开源项目" : "Open Source"}
               </a>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {language === "zh" ? "基于 PDF.js 构建的在线工具" : "Built with PDF.js"}
             </div>
           </div>
         </footer>
@@ -3286,6 +3321,37 @@ export default function PDFConverter() {
           }}
         />
       </div>
+
+      {/* 登录提示弹窗 */}
+      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {t('loginRequired')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('loginRequiredDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowLoginDialog(false)}
+            >
+              {t('cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                setShowLoginDialog(false)
+                // 这里可以添加跳转到登录页面的逻辑
+                // 或者触发登录模态框
+              }}
+            >
+              {t('goToLogin')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -3,15 +3,10 @@ import Stripe from 'stripe'
 // 在开发环境中，如果没有设置 Stripe 密钥，使用测试密钥或跳过初始化
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_dummy_key_for_development'
 
-// 调试信息：检查环境变量
-console.log('Environment Debug Info:', {
-  NODE_ENV: process.env.NODE_ENV,
-  STRIPE_SECRET_KEY_EXISTS: !!process.env.STRIPE_SECRET_KEY,
-  STRIPE_SECRET_KEY_PREFIX: process.env.STRIPE_SECRET_KEY ? process.env.STRIPE_SECRET_KEY.substring(0, 7) + '...' : 'undefined'
-})
+// 服务端环境检测：只在服务端验证 Stripe 配置
+const isServerSide = typeof window === 'undefined'
 
-// 验证生产环境的 Stripe 配置
-if (process.env.NODE_ENV === 'production') {
+if (isServerSide && process.env.NODE_ENV === 'production') {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error(
       'STRIPE_SECRET_KEY is required in production environment. ' +
@@ -39,6 +34,55 @@ export const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2025-07-30.basil',
   typescript: true
 })
+
+/**
+ * 服务端 Stripe 配置验证函数
+ * 只在服务端调用，用于验证 Stripe 配置是否正确
+ */
+export function validateStripeConfig() {
+  // 确保只在服务端执行
+  if (typeof window !== 'undefined') {
+    throw new Error('validateStripeConfig should only be called on the server side')
+  }
+
+  const env = process.env.NODE_ENV
+  const stripeKey = process.env.STRIPE_SECRET_KEY
+
+  console.log('Stripe Configuration Validation:', {
+    NODE_ENV: env,
+    STRIPE_SECRET_KEY_EXISTS: !!stripeKey,
+    STRIPE_SECRET_KEY_PREFIX: stripeKey ? stripeKey.substring(0, 7) + '...' : 'undefined'
+  })
+
+  if (env === 'production') {
+    if (!stripeKey) {
+      throw new Error(
+        'STRIPE_SECRET_KEY is required in production environment. ' +
+        'Please set the STRIPE_SECRET_KEY environment variable with a valid Stripe secret key.'
+      )
+    }
+    
+    if (!stripeKey.startsWith('sk_live_') && !stripeKey.startsWith('sk_test_')) {
+      throw new Error(
+        'Invalid STRIPE_SECRET_KEY format. ' +
+        'Stripe secret keys should start with "sk_live_" or "sk_test_".'
+      )
+    }
+    
+    if (stripeKey.startsWith('sk_test_')) {
+      console.warn(
+        'WARNING: Using Stripe test key in production environment. ' +
+        'Please use a live key (sk_live_*) for production.'
+      )
+    }
+  }
+
+  return {
+    isValid: true,
+    environment: env,
+    keyType: stripeKey?.startsWith('sk_live_') ? 'live' : 'test'
+  }
+}
 
 // 订阅计划配置
 export const SUBSCRIPTION_PLANS = {

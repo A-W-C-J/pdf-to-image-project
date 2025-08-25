@@ -1931,7 +1931,7 @@ export default function PDFConverter() {
           <Breadcrumb />
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">{language === "zh" ? "PDF工具集" : "PDF Tools"}</h1>
-            <p className="text-muted-foreground">{language === "zh" ? "强大的PDF处理工具，支持转换为图片和Word文档" : "Powerful PDF processing tools, supports conversion to images and Word documents"}</p>
+            {/* <p className="text-muted-foreground">{language === "zh" ? "强大的PDF处理工具，支持转换为图片和Word文档" : "Powerful PDF processing tools, supports conversion to images and Word documents"}</p> */}
             <p className="text-sm text-muted-foreground">{t("privacy")}</p>
           </div>
         </div>

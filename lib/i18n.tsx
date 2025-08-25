@@ -8,7 +8,7 @@ export const translations = {
   zh: {
     title: "PDF转图片工具 - 批量处理与OCR识别",
     subtitle: "支持批量转换、文字提取、页面合并、多格式输出的专业PDF处理工具",
-    privacy: "专业PDF处理工具：支持PDF转图片、批量转换、OCR文字识别、页面合并、多格式输出、水印添加、可搜索PDF生成等功能，所有处理在浏览器本地完成，确保文件隐私安全",
+    privacy: "专业PDF处理工具：支持PDF转图片、PDF转多种文档格式（Word、Excel、PowerPoint、TXT）、批量转换、OCR文字识别、页面合并、多格式输出、水印添加、可搜索PDF生成等功能",
     fileUpload: "文件上传",
     fileUploadDesc: "选择PDF文件或输入URL进行转换",
     localFile: "本地文件",
@@ -180,7 +180,7 @@ export const translations = {
   en: {
     title: "PDF to Image Converter - Batch Processing & OCR",
     subtitle: "Professional PDF processing tool with batch conversion, text extraction, page merging, and multi-format output",
-    privacy: "Professional PDF processing tool: supports PDF to image conversion, batch processing, OCR text recognition, page merging, multi-format output, watermark addition, searchable PDF generation and more. All processing is done locally in your browser to ensure file privacy and security",
+    privacy: "Professional PDF processing tool: supports PDF to image conversion, PDF to multiple document formats (Word, Excel, PowerPoint, TXT), batch processing, OCR text recognition, page merging, multi-format output, watermark addition, searchable PDF generation and more",
     fileUpload: "File Upload",
     fileUploadDesc: "Select PDF file or enter URL for conversion",
     localFile: "Local File",

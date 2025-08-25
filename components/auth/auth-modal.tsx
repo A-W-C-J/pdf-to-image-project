@@ -136,9 +136,9 @@ export function AuthModal({ isOpen, onClose, view = 'sign_in' }: AuthModalProps)
             redirectTo={(() => {
               if (typeof window === 'undefined') return '/auth/callback'
               
-              // 使用环境变量配置的站点URL，如果没有则使用当前origin
-              const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
-              const origin = siteUrl || window.location.origin
+              // 在生产环境中使用固定的生产域名，开发环境使用当前origin
+              const isProduction = window.location.hostname !== 'localhost'
+              const origin = isProduction ? 'https://www.pdf2img.top' : window.location.origin
               
               return `${origin}/auth/callback`
             })()}

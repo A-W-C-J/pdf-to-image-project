@@ -3,6 +3,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { InteractiveButton } from "@/components/ui/interactive-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Edit, Trash2, Save, X, ArrowLeft, Eye, Calendar, Lock, Sparkles, Loader2 } from "lucide-react"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { createClient } from "@/lib/supabase/client"
+import Breadcrumb from "@/components/breadcrumb"
 
 interface BlogPost {
   id: string
@@ -42,34 +44,44 @@ export default function BlogAdminPage() {
   const [generationStatus, setGenerationStatus] = useState("")
   const [streamingContent, setStreamingContent] = useState("")
 
+
+
+
   const supabase = createClient()
 
-  useEffect(() => {
-    const loadArticles = async () => {
-      try {
-        setLoading(true)
-        const { data, error } = await supabase.from("blog_posts").select("*").order("created_at", { ascending: false })
+  const loadArticles = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/blog', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-        if (error) {
-          console.error("Error loading articles:", error)
-          setError(`加载文章失败: ${error.message || '未知错误'}`)
-          return
-        }
-
-        setPosts(data || [])
-        console.log('博客数据加载成功:', data?.length || 0, '篇文章')
-      } catch (error) {
-        console.error("Error loading articles:", error)
-        setError("加载文章失败")
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || '加载失败')
       }
-    }
 
+      const { data } = await response.json()
+      setPosts(data || [])
+      console.log('博客数据加载成功:', data?.length || 0, '篇文章')
+    } catch (error) {
+      console.error("Error loading articles:", error)
+      setError(error instanceof Error ? error.message : "加载文章失败")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     if (isAuthenticated) {
       loadArticles()
     }
   }, [isAuthenticated, supabase])
+
+
 
 
 
@@ -103,62 +115,67 @@ export default function BlogAdminPage() {
     setError("")
 
     try {
-      const slug = generateSlug(formData.title || "")
-
       if (editingPost) {
         // Update existing post
-        const { error } = await supabase
-          .from("blog_posts")
-          .update({
+        const response = await fetch('/api/blog', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: editingPost.id,
             title: formData.title,
             excerpt: formData.excerpt || "",
             content: formData.content,
             tags: formData.tags || [],
             seo_keywords: formData.seo_keywords || [],
-            slug,
-            published: formData.published || false,
-          })
-          .eq("id", editingPost.id)
+            published: true,
+          }),
+        })
 
-        if (error) throw error
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || '更新失败')
+        }
 
+        const { data } = await response.json()
+        
         // Update local state
         setPosts(
-          posts.map((post) => (post.id === editingPost.id ? ({ ...post, ...formData, slug } as BlogPost) : post)),
+          posts.map((post) => (post.id === editingPost.id ? data : post)),
         )
         setSuccess("文章已更新")
       } else {
         // Create new post
-        const { data, error } = await supabase
-          .from("blog_posts")
-          .insert({
+        const response = await fetch('/api/blog', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
             title: formData.title,
             excerpt: formData.excerpt || "",
             content: formData.content,
             tags: formData.tags || [],
             seo_keywords: formData.seo_keywords || [],
-            slug,
-            published: formData.published || false,
-          })
-          .select()
-          .single()
+            published: true,
+          }),
+        })
 
-        if (error) throw error
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || '创建失败')
+        }
 
+        const { data } = await response.json()
+        
         // Add to local state
         setPosts([data, ...posts])
         setSuccess("文章已创建")
       }
 
       // 重新加载数据以确保列表更新
-      const { data: updatedPosts, error: loadError } = await supabase
-        .from("blog_posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-      
-      if (!loadError && updatedPosts) {
-        setPosts(updatedPosts)
-      }
+      await loadArticles()
 
       setEditingPost(null)
       setIsCreating(false)
@@ -183,9 +200,18 @@ export default function BlogAdminPage() {
 
     setLoading(true)
     try {
-      const { error } = await supabase.from("blog_posts").delete().eq("id", id)
+      const response = await fetch('/api/blog', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id }),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || '删除失败')
+      }
 
       setPosts(posts.filter((post) => post.id !== id))
       setSuccess("文章已删除")
@@ -213,24 +239,82 @@ export default function BlogAdminPage() {
   }
 
   const handleAIGenerate = async () => {
-    if (!aiTopic.trim()) {
-      setError("请输入创作主题")
-      return
-    }
-
     setIsGenerating(true)
     setError("")
     setGenerationStatus("正在连接AI服务...")
     setStreamingContent("")
 
     try {
+      let topic = aiTopic.trim()
+      
+      // 如果没有输入主题，先生成主题
+      if (!topic) {
+        setGenerationStatus("正在生成主题...")
+        
+        const topicPrompt = aiLanguage === '中文' 
+          ? '请为技术博客生成一个新颖且有价值的主题，要求具有实用性和技术深度，适合技术人员阅读。请直接返回主题名称，不要包含其他内容。'
+          : 'Please generate a novel and valuable topic for a technical blog that is practical, technically deep, and suitable for technical professionals to read. Return only the topic name without any other content.'
+        
+        const topicResponse = await fetch('/api/generate-blog', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            topic: topicPrompt,
+            language: aiLanguage,
+            generateTopicOnly: true
+          }),
+        })
+        
+        if (!topicResponse.ok) {
+          throw new Error('生成主题失败')
+        }
+        
+        const topicReader = topicResponse.body?.getReader()
+        if (!topicReader) {
+          throw new Error('无法读取主题响应')
+        }
+        
+        let generatedTopic = ''
+        while (true) {
+          const { done, value } = await topicReader.read()
+          if (done) break
+          
+          const chunk = new TextDecoder().decode(value)
+          const lines = chunk.split('\n')
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+                if (data.type === 'complete' && data.topic) {
+                  generatedTopic = data.topic
+                  break
+                } else if (data.content) {
+                  generatedTopic += data.content
+                }
+              } catch (e) {
+                // 忽略解析错误
+              }
+            }
+          }
+          if (generatedTopic && generatedTopic.includes('complete')) break
+        }
+        
+        topic = generatedTopic.trim().replace(/^["']|["']$/g, '').split('\n')[0] || '技术博客文章'
+        setAiTopic(topic) // 更新输入框显示生成的主题
+      }
+      
+      setGenerationStatus("正在生成博客内容...")
+      
       const response = await fetch("/api/generate-blog", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          topic: aiTopic,
+          topic: topic,
           language: aiLanguage,
         }),
       })
@@ -278,6 +362,7 @@ export default function BlogAdminPage() {
                     seo_keywords: data.data.seo_keywords || [],
                   })
                   setSuccess("AI内容生成成功！请检查并编辑内容")
+
                   setTimeout(() => {
                     setSuccess("")
                     setGenerationStatus("")
@@ -324,6 +409,7 @@ export default function BlogAdminPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleLogin()}
                 placeholder="输入密码"
+                className="transition-all duration-300 focus:scale-105 focus:shadow-md focus:border-primary"
               />
             </div>
             {error && (
@@ -331,7 +417,7 @@ export default function BlogAdminPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <Button onClick={handleLogin} className="w-full">
+            <Button onClick={handleLogin} className="w-full transition-all duration-200 hover:scale-105 active:scale-95">
               登录
             </Button>
             <div className="text-center">
@@ -370,6 +456,14 @@ export default function BlogAdminPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* 面包屑导航 */}
+        <Breadcrumb 
+          items={[
+            { label: '首页', href: '/' },
+            { label: '技术博客', href: '/blog' },
+            { label: '博客管理', href: '/blog/admin' }
+          ]}
+        />
         {success && (
           <Alert className="mb-6">
             <AlertDescription>{success}</AlertDescription>
@@ -388,11 +482,11 @@ export default function BlogAdminPage() {
               <CardTitle className="flex items-center justify-between">
                 <span>{editingPost ? "编辑文章" : "创建文章"}</span>
                 <div className="flex gap-2">
-                  <Button onClick={handleSave} size="sm" disabled={loading}>
+                  <Button onClick={handleSave} size="sm" disabled={loading} className="transition-all duration-200 hover:scale-105 active:scale-95">
                     <Save className="h-4 w-4 mr-1" />
                     {loading ? "保存中..." : "保存"}
                   </Button>
-                  <Button onClick={handleCancel} variant="outline" size="sm">
+                  <Button onClick={handleCancel} variant="outline" size="sm" className="transition-all duration-200 hover:scale-105 active:scale-95">
                     <X className="h-4 w-4 mr-1" />
                     取消
                   </Button>
@@ -416,8 +510,9 @@ export default function BlogAdminPage() {
                         id="aiTopic"
                         value={aiTopic}
                         onChange={(e) => setAiTopic(e.target.value)}
-                        placeholder="例如：PDF.js、React、SEO优化"
+                        placeholder="输入主题（如：PDF.js、React、SEO优化）或留空自动生成"
                         disabled={isGenerating}
+                        className="transition-all duration-300 focus:scale-105 focus:shadow-md focus:border-primary"
                       />
                     </div>
                     <div className="space-y-2">
@@ -435,19 +530,16 @@ export default function BlogAdminPage() {
                       </Select>
                     </div>
                   </div>
-                  <Button onClick={handleAIGenerate} disabled={isGenerating || !aiTopic.trim()} className="w-full">
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        AI生成中...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        生成博客内容
-                      </>
-                    )}
-                  </Button>
+                  <InteractiveButton 
+                    onClick={handleAIGenerate} 
+                    disabled={isGenerating} 
+                    loading={isGenerating}
+                    loadingText="AI生成中..."
+                    className="w-full"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    生成博客内容
+                  </InteractiveButton>
                   
                   {/* 生成状态显示 */}
                   {(isGenerating || generationStatus) && (
@@ -478,6 +570,7 @@ export default function BlogAdminPage() {
                   value={formData.title || ""}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="输入文章标题"
+                  className="transition-all duration-300 focus:scale-105 focus:shadow-md focus:border-primary"
                 />
               </div>
 
@@ -489,6 +582,7 @@ export default function BlogAdminPage() {
                   onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
                   placeholder="输入文章摘要"
                   rows={3}
+                  className="transition-all duration-300 focus:scale-105 focus:shadow-md focus:border-primary"
                 />
               </div>
 
@@ -500,6 +594,7 @@ export default function BlogAdminPage() {
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   placeholder="输入文章内容（支持Markdown）"
                   rows={15}
+                  className="transition-all duration-300 focus:scale-105 focus:shadow-md focus:border-primary"
                 />
               </div>
 
@@ -510,6 +605,7 @@ export default function BlogAdminPage() {
                   value={formData.tags?.join(", ") || ""}
                   onChange={(e) => setFormData({ ...formData, tags: parseTagsString(e.target.value) })}
                   placeholder="标签1, 标签2, 标签3"
+                  className="transition-all duration-300 focus:scale-105 focus:shadow-md focus:border-primary"
                 />
               </div>
 
@@ -520,6 +616,7 @@ export default function BlogAdminPage() {
                   value={formData.seo_keywords?.join(", ") || ""}
                   onChange={(e) => setFormData({ ...formData, seo_keywords: parseTagsString(e.target.value) })}
                   placeholder="关键词1, 关键词2, 关键词3"
+                  className="transition-all duration-300 focus:scale-105 focus:shadow-md focus:border-primary"
                 />
               </div>
             </CardContent>

@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const { topic, language } = await request.json()
+    const { topic, language, generateTopicOnly } = await request.json()
 
     if (!topic) {
       return new Response(JSON.stringify({ error: "请提供创作主题" }), {
@@ -19,8 +19,33 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const prompt = `你是一位专业的博客写作专家，精通SEO优化，当前负责对https://www.pdf2img.top/进行博文创作以求长尾词SEO优化，该网站的核心特性为：
-• 纯前端处理
+    const prompt = generateTopicOnly 
+      ? `你是一位专业的SEO博客写作专家，负责为https://www.pdf2img.top/生成博客主题。请根据以下网站特性生成一个有价值的、教程向的、利他的博客主题：
+
+网站核心功能：
+• PDF转DOCX、MD、TEX等多种格式
+• PDF转PNG、JPEG、TIFF、GIF、WEBP等多种格式
+• 批量文档转换
+• 文档合并
+• 文档分割
+• OCR文字识别技术
+• AI智能文档总结
+• 文档水印和安全保护
+• GIF动画生成
+• 可搜索PDF创建
+• 页面合并和分割
+• 密码保护和权限管理
+
+请生成一个与以上功能相关的、教程向的、利他的博客主题，要求：
+1. 适合SEO优化，能吸引目标用户
+2. 语言：${language === 'zh' ? '中文' : '英文'}
+
+只返回主题标题，不要其他内容。
+
+参考方向：${topic}` // 使用网站相关的提示词生成主题
+      : `你是一位专业的博客写作专家，精通SEO优化，当前负责对https://www.pdf2img.top/进行博文创作以求长尾词SEO优化，该网站的核心特性为：
+• PDF转DOCX、MD、TEX等多种格式
+• PDF转PNG、JPEG、TIFF、GIF、WEBP等多种格式
 • 批量转换
 • OCR文字识别
 • AI智能总结
@@ -38,7 +63,7 @@ export async function POST(request: NextRequest) {
 请生成以下内容：
 1. 一个吸引人的标题（适合SEO）
 2. 一个简洁的摘要（100-150字）
-3. 详细的文章内容（至少1000字，包含小标题、代码示例等）
+3. 详细的文章内容（至少1000字，包含小标题）
 4. 5-8个相关标签
 5. 8-12个SEO关键词
 
@@ -102,33 +127,40 @@ export async function POST(request: NextRequest) {
                 const data = line.slice(6)
                 if (data === '[DONE]') {
                   // 流结束，处理完整内容
-                  try {
-                    let blogData
+                  if (generateTopicOnly) {
+                    // 仅生成主题时，直接返回清理后的文本
+                    const cleanTopic = accumulatedContent.trim().replace(/^["']|["']$/g, '').split('\n')[0]
+                    controller.enqueue(`data: ${JSON.stringify({ type: "complete", topic: cleanTopic })}\n\n`)
+                  } else {
+                    // 生成完整博客时，解析JSON
                     try {
-                      // 提取JSON部分（可能包含在代码块中）
-                      const jsonMatch = accumulatedContent.match(/```json\n([\s\S]*?)\n```/) || accumulatedContent.match(/\{[\s\S]*\}/)
-                      const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : accumulatedContent
-                      blogData = JSON.parse(jsonString)
-                    } catch (parseError) {
-                      // 如果解析失败，尝试从文本中提取信息
-                      console.error("JSON解析失败，尝试文本解析:", parseError)
-                      blogData = {
-                        title: `${topic}完整指南`,
-                        excerpt: `关于${topic}的专业介绍和实践指南，涵盖核心概念、最佳实践和实际应用案例。`,
-                        content: accumulatedContent,
-                        tags: [topic, "技术", "教程", "最佳实践"],
-                        seo_keywords: [`${topic}教程`, `${topic}指南`, `${topic}最佳实践`, "技术文档"],
+                      let blogData
+                      try {
+                        // 提取JSON部分（可能包含在代码块中）
+                        const jsonMatch = accumulatedContent.match(/```json\n([\s\S]*?)\n```/) || accumulatedContent.match(/\{[\s\S]*\}/)
+                        const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : accumulatedContent
+                        blogData = JSON.parse(jsonString)
+                      } catch (parseError) {
+                        // 如果解析失败，尝试从文本中提取信息
+                        console.error("JSON解析失败，尝试文本解析:", parseError)
+                        blogData = {
+                          title: `${topic}完整指南`,
+                          excerpt: `关于${topic}的专业介绍和实践指南，涵盖核心概念、最佳实践和实际应用案例。`,
+                          content: accumulatedContent,
+                          tags: [topic, "技术", "教程", "最佳实践"],
+                          seo_keywords: [`${topic}教程`, `${topic}指南`, `${topic}最佳实践`, "技术文档"],
+                        }
                       }
+
+                      // 确保数组字段存在
+                      blogData.tags = Array.isArray(blogData.tags) ? blogData.tags : []
+                      blogData.seo_keywords = Array.isArray(blogData.seo_keywords) ? blogData.seo_keywords : []
+
+                      // 发送完成事件
+                      controller.enqueue(`data: ${JSON.stringify({ type: "complete", data: blogData })}\n\n`)
+                    } catch {
+                      controller.enqueue(`data: ${JSON.stringify({ type: "error", message: "内容解析失败" })}\n\n`)
                     }
-
-                    // 确保数组字段存在
-                    blogData.tags = Array.isArray(blogData.tags) ? blogData.tags : []
-                    blogData.seo_keywords = Array.isArray(blogData.seo_keywords) ? blogData.seo_keywords : []
-
-                    // 发送完成事件
-                    controller.enqueue(`data: ${JSON.stringify({ type: "complete", data: blogData })}\n\n`)
-                  } catch {
-                    controller.enqueue(`data: ${JSON.stringify({ type: "error", message: "内容解析失败" })}\n\n`)
                   }
                   controller.close()
                   return

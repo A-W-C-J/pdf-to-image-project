@@ -21,3 +21,17 @@ export async function createClient() {
     },
   })
 }
+
+// 创建服务端客户端，用于绕过RLS策略
+export function createServiceClient() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() { return [] },
+        setAll() {},
+      },
+    }
+  )
+}

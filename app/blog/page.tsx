@@ -126,7 +126,12 @@ export default function BlogPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <Breadcrumb />
+          <Breadcrumb 
+            items={[
+              { label: language === 'zh' ? '首页' : 'Home', href: '/' },
+              { label: language === 'zh' ? '技术博客' : 'Tech Blog', href: '/blog' }
+            ]}
+          />
         </div>
         <div className="space-y-6 mb-8">
           <div className="text-center space-y-2">
@@ -144,7 +149,7 @@ export default function BlogPage() {
               placeholder={language === "zh" ? "搜索文章..." : "Search articles..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 transition-all duration-300 focus:scale-105 focus:shadow-md focus:border-primary"
             />
           </div>
         </div>
@@ -183,7 +188,7 @@ export default function BlogPage() {
               <Card key={post.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle className="text-lg leading-tight">
-                    <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">
+                    <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-all duration-200 hover:scale-105 active:scale-95 inline-block">
                       {language === "zh" ? post.title : (post.title_en || post.title)}
                     </Link>
                   </CardTitle>
@@ -195,7 +200,7 @@ export default function BlogPage() {
                 <CardContent className="space-y-4">
                   <div className="flex flex-wrap gap-1">
                     {(post.tags || []).map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
+                      <Badge key={tag} variant="secondary" className="text-xs hover:scale-105 active:scale-95 transition-all duration-200">
                         <Link href={`/blog/tag/${encodeURIComponent(tag)}`} className="hover:text-primary transition-colors">
                           {tag}
                         </Link>

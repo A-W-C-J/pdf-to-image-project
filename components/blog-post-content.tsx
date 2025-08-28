@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import ReactMarkdown from 'react-markdown'
 import RelatedArticles from '@/components/related-articles'
+import Breadcrumb from '@/components/breadcrumb'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
@@ -46,27 +47,16 @@ export default function BlogPostContent({ post }: BlogPostContentProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/blog" 
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                {language === 'zh' ? '返回博客列表' : 'Back to Blog List'}
-              </Link>
-              <div className="h-4 w-px bg-border" />
-              <h1 className="text-xl font-semibold">{language === 'zh' ? '技术博客' : 'Tech Blog'}</h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
+          {/* 面包屑导航 */}
+          <Breadcrumb 
+            items={[
+              { label: language === 'zh' ? '首页' : 'Home', href: '/' },
+              { label: language === 'zh' ? '技术博客' : 'Tech Blog', href: '/blog' },
+              { label: language === 'zh' ? post.title : (post.title_en || post.title), href: `/blog/${post.slug}` }
+            ]}
+          />
           {/* 文章内容 */}
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="space-y-6">
@@ -147,7 +137,7 @@ export default function BlogPostContent({ post }: BlogPostContentProps) {
                           href={href}
                           className="text-primary hover:text-primary/80 underline underline-offset-4 transition-colors"
                           target={isExternal ? '_blank' : undefined}
-                          rel={isExternal ? 'noopener noreferrer' : undefined}
+                          rel={isExternal ? 'nofollow noopener noreferrer' : 'nofollow'}
                           {...props}
                         >
                           {children}

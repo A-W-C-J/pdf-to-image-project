@@ -5,13 +5,14 @@ import { useState, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { InteractiveButton } from "@/components/ui/interactive-button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Download, FileImage, Upload, X, BookOpen, Github, User, Menu, FileText, Copy } from "lucide-react"
+import { Download, FileImage, Upload, X, BookOpen, Github, User, Menu, FileText, Copy, AlertCircle, CreditCard } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
@@ -195,6 +196,9 @@ export default function PDFConverter() {
   // Tab状态管理
   const [activeTab, setActiveTab] = useState<string>("pdf-to-image")
 
+  // 导航按钮加载状态
+  const [navigationLoading, setNavigationLoading] = useState<string | null>(null)
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [batchFiles, setBatchFiles] = useState<BatchFile[]>([])
@@ -262,6 +266,7 @@ export default function PDFConverter() {
   const [showPreview, setShowPreview] = useState<boolean>(false)
   const [isModelLoading, setIsModelLoading] = useState(false)
   const [showLoginDialog, setShowLoginDialog] = useState(false)
+  const [showQuotaDialog, setShowQuotaDialog] = useState(false)
 
   // 图像质量检测函数
   const analyzeImageQuality = (imageData: ImageData) => {
@@ -1334,6 +1339,11 @@ export default function PDFConverter() {
 
   // 转换单个PDF文件
   const convertSinglePDF = async (file: File, fileId?: string): Promise<{ images: ConvertedImage[], ocrResults?: OcrResult[] }> => {
+    // 确保只在客户端环境中导入pdfjs-dist
+    if (typeof window === 'undefined') {
+      throw new Error('PDF processing is only available in browser environment')
+    }
+    
     const pdfjsLib = await import("pdfjs-dist")
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
 
@@ -1416,15 +1426,47 @@ export default function PDFConverter() {
         throw new Error(language === "zh" ? "文件大小不能超过300MB" : "File size cannot exceed 300MB")
       }
 
+      // 在客户端使用PDF.js获取准确的页数
+      setStatus(language === "zh" ? "解析PDF页数..." : "Parsing PDF page count...")
+      setProgress(5)
+      
+      let pageCount = 0
+      try {
+        // 确保只在客户端环境中导入pdfjs-dist
+        if (typeof window !== 'undefined') {
+          const pdfjsLib = await import("pdfjs-dist")
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+          
+          const arrayBuffer = await selectedFile.arrayBuffer()
+          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+          const pdfDocument = await loadingTask.promise
+          pageCount = pdfDocument.numPages
+          
+          console.log('PDF页数解析成功:', pageCount)
+        }
+      } catch (pdfError) {
+        console.warn('PDF页数解析失败，使用文件大小估算:', pdfError)
+        // 如果PDF.js解析失败，使用文件大小估算
+        const fileSizeKB = selectedFile.size / 1024
+        if (fileSizeKB < 500) {
+          pageCount = Math.max(1, Math.round(fileSizeKB / 50))
+        } else if (fileSizeKB < 2000) {
+          pageCount = Math.max(1, Math.round(fileSizeKB / 80))
+        } else {
+          pageCount = Math.max(1, Math.round(fileSizeKB / 120))
+        }
+      }
+
       const formData = new FormData()
       formData.append('file', selectedFile)
       formData.append('format', selectedFormat)
       formData.append('formulaMode', selectedFormulaMode)
+      formData.append('pageCount', pageCount.toString()) // 将页数作为参数传递
 
       setStatus(language === "zh" ? "上传文件到服务器..." : "Uploading file to server...")
       setProgress(10)
 
-      const response = await fetch('/api/pdf-convert', {
+      const response = await fetch('/api/pdf-to-word', {
         method: 'POST',
         body: formData
       })
@@ -1435,6 +1477,11 @@ export default function PDFConverter() {
       const result = await response.json()
 
       if (!response.ok) {
+        // 检查是否是额度不足错误（402状态码）
+        if (response.status === 402) {
+          setShowQuotaDialog(true)
+          return
+        }
         throw new Error(result.error || (language === "zh" ? "转换失败" : "Conversion failed"))
       }
 
@@ -1532,6 +1579,11 @@ export default function PDFConverter() {
     setShowOcrResults({})
 
     try {
+      // 确保只在客户端环境中导入pdfjs-dist
+      if (typeof window === 'undefined') {
+        throw new Error('PDF processing is only available in browser environment')
+      }
+      
       const pdfjsLib = await import("pdfjs-dist")
 
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
@@ -1859,23 +1911,41 @@ export default function PDFConverter() {
     handleFileSelect(event)
   }
 
+  // 处理导航按钮点击
+  const handleNavigationClick = (path: string) => {
+    setNavigationLoading(path)
+    // 模拟短暂延迟以显示加载状态
+    setTimeout(() => {
+      setNavigationLoading(null)
+    }, 300)
+  }
+
   return (
     <div className="min-h-screen bg-background p-4">
       {/* Desktop Navigation */}
       <div className="hidden md:fixed md:top-4 md:left-4 md:right-4 md:z-10 md:flex md:items-center md:justify-between">
         <div className="flex gap-2">
-          <Link href="/blog">
-            <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-              <BookOpen className="h-4 w-4" />
+          <Link href="/blog" onClick={() => handleNavigationClick('/blog')}>
+            <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent transition-all duration-200 hover:bg-primary/10 hover:border-primary/50 hover:scale-105 active:scale-95" disabled={navigationLoading === '/blog'}>
+              {navigationLoading === '/blog' ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <BookOpen className="h-4 w-4" />
+              )}
               {language === "zh" ? "技术博客" : "Tech Blog"}
             </Button>
           </Link>
-          <Link href="/about">
-            <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-              <User className="h-4 w-4" />
+          <Link href="/about" onClick={() => handleNavigationClick('/about')}>
+            <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent transition-all duration-200 hover:bg-primary/10 hover:border-primary/50 hover:scale-105 active:scale-95" disabled={navigationLoading === '/about'}>
+              {navigationLoading === '/about' ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <User className="h-4 w-4" />
+              )}
               {language === "zh" ? "关于我们" : "About Us"}
             </Button>
           </Link>
+
         </div>
         <div className="flex gap-2">
           <ThemeSwitcher language={language} />
@@ -1899,16 +1969,34 @@ export default function PDFConverter() {
         
         {isMobileMenuOpen && (
           <div className="absolute top-12 left-0 right-0 bg-background border rounded-lg shadow-lg p-4 space-y-4">
-            <Link href="/blog" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button variant="outline" size="sm" className="w-full flex items-center gap-2 justify-start h-10">
-                <BookOpen className="h-4 w-4" />
+            <Link href="/blog" onClick={() => { handleNavigationClick('/blog'); setIsMobileMenuOpen(false); }}>
+              <Button variant="outline" size="sm" className="w-full flex items-center gap-2 justify-start h-10 transition-all duration-200 hover:bg-primary/10 hover:border-primary/50 active:scale-95" disabled={navigationLoading === '/blog'}>
+                {navigationLoading === '/blog' ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <BookOpen className="h-4 w-4" />
+                )}
                 {language === "zh" ? "技术博客" : "Tech Blog"}
               </Button>
             </Link>
-            <Link href="/about" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button variant="outline" size="sm" className="w-full flex items-center gap-2 justify-start h-10">
-                <User className="h-4 w-4" />
+            <Link href="/about" onClick={() => { handleNavigationClick('/about'); setIsMobileMenuOpen(false); }}>
+              <Button variant="outline" size="sm" className="w-full flex items-center gap-2 justify-start h-10 transition-all duration-200 hover:bg-primary/10 hover:border-primary/50 active:scale-95" disabled={navigationLoading === '/about'}>
+                {navigationLoading === '/about' ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <User className="h-4 w-4" />
+                )}
                 {language === "zh" ? "关于我们" : "About Us"}
+              </Button>
+            </Link>
+            <Link href="/topup" onClick={() => { handleNavigationClick('/topup'); setIsMobileMenuOpen(false); }}>
+              <Button variant="outline" size="sm" className="w-full flex items-center gap-2 justify-start h-10 transition-all duration-200 hover:bg-primary/10 hover:border-primary/50 active:scale-95" disabled={navigationLoading === '/topup'}>
+                {navigationLoading === '/topup' ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <CreditCard className="h-4 w-4" />
+                )}
+                {language === "zh" ? "充值中心" : "Topup"}
               </Button>
             </Link>
             <div className="flex gap-2 pt-3 border-t">
@@ -1938,9 +2026,12 @@ export default function PDFConverter() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pdf-to-image" className="flex items-center gap-2">
+            <TabsTrigger value="pdf-to-image" className="flex items-center gap-2 relative">
               <FileImage className="h-4 w-4" />
               {language === "zh" ? "PDF转图片 + OCR识别" : "PDF to Image + OCR"}
+              <span className="absolute -top-1 -right-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs px-1.5 py-0.5 rounded-full font-semibold shadow-sm">
+                Free
+              </span>
             </TabsTrigger>
             <TabsTrigger value="pdf-to-word" className="flex items-center gap-2 relative">
               <FileText className="h-4 w-4" />
@@ -2016,8 +2107,10 @@ export default function PDFConverter() {
             <div id="input-content" role="tabpanel" aria-labelledby={inputSource === "file" ? "file-tab" : "url-tab"}>
             {inputSource === "file" ? (
               <div
-                className={`flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-                  isDragging ? "border-primary bg-muted" : "border-border"
+                className={`flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-8 text-center transition-all duration-300 transform ${
+                  isDragging 
+                    ? "border-primary bg-primary/10 scale-105 shadow-lg" 
+                    : "border-border hover:border-primary/50 hover:bg-muted/50"
                 }`}
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
@@ -2036,10 +2129,24 @@ export default function PDFConverter() {
               >
                 <Label
                   htmlFor="file-input"
-                  className="flex cursor-pointer flex-col items-center gap-2 text-muted-foreground"
+                  className={`flex cursor-pointer flex-col items-center gap-2 transition-all duration-300 ${
+                    isDragging 
+                      ? "text-primary scale-110" 
+                      : "text-muted-foreground hover:text-primary"
+                  }`}
                 >
-                  <Upload className="h-8 w-8" aria-hidden="true" />
-                  <span>{t("dragDrop")}</span>
+                  <Upload 
+                    className={`h-8 w-8 transition-all duration-300 ${
+                      isDragging ? "animate-bounce" : "hover:scale-110"
+                    }`} 
+                    aria-hidden="true" 
+                  />
+                  <span className="transition-colors duration-300">
+                    {isDragging 
+                      ? (language === "zh" ? "释放文件" : "Drop files here") 
+                      : t("dragDrop")
+                    }
+                  </span>
                 </Label>
                 <div id="file-upload-description" className="sr-only">
                   {language === "zh" 
@@ -2092,6 +2199,7 @@ export default function PDFConverter() {
                   disabled={isConverting}
                   aria-describedby="pdf-url-description"
                   aria-invalid={error ? "true" : "false"}
+                  className="transition-all duration-200 focus:scale-[1.02] focus:shadow-md focus:border-primary"
                 />
                 <p id="pdf-url-description" className="text-xs text-muted-foreground">{t("pdfUrlDesc")}</p>
                 {pdfUrl.trim() && (
@@ -2115,6 +2223,7 @@ export default function PDFConverter() {
                   disabled={isConverting}
                   aria-describedby="password-description"
                   autoComplete="current-password"
+                  className="transition-all duration-200 focus:scale-[1.02] focus:shadow-md focus:border-primary"
                 />
                 <p id="password-description" className="text-xs text-muted-foreground">{t("pdfPasswordDesc")}</p>
               </div>
@@ -2136,6 +2245,7 @@ export default function PDFConverter() {
                   disabled={isConverting}
                   aria-describedby="scale-description"
                   aria-label={language === "zh" ? "图像缩放比例，范围1.0到5.0" : "Image scale ratio, range 1.0 to 5.0"}
+                  className="transition-all duration-200 focus:scale-[1.02] focus:shadow-md focus:border-primary"
                 />
                 <p id="scale-description" className="text-xs text-muted-foreground">{t("scaleDesc")}</p>
               </div>
@@ -2231,6 +2341,7 @@ export default function PDFConverter() {
                       disabled={isConverting}
                       placeholder={t("watermarkTextPlaceholder")}
                       aria-describedby="watermark-text-description"
+                      className="transition-all duration-200 focus:scale-[1.02] focus:shadow-md focus:border-primary"
                     />
                     <p id="watermark-text-description" className="sr-only">
                       {language === "zh" ? "输入要显示在图像上的水印文字" : "Enter the watermark text to display on images"}
@@ -2268,6 +2379,7 @@ export default function PDFConverter() {
                       disabled={isConverting}
                       aria-label={language === "zh" ? `水印透明度：${Math.round(watermarkOpacity * 100)}%` : `Watermark opacity: ${Math.round(watermarkOpacity * 100)}%`}
                       aria-describedby="opacity-description"
+                      className="transition-all duration-200 focus:scale-[1.02] focus:shadow-md"
                     />
                     <p id="opacity-description" className="sr-only">
                       {language === "zh" ? "调整水印的透明度，范围从10%到100%" : "Adjust watermark transparency, range from 10% to 100%"}
@@ -2299,6 +2411,7 @@ export default function PDFConverter() {
                         ocrConfidenceThreshold: Number.parseInt(e.target.value) || 30
                       }))}
                       disabled={isConverting}
+                      className="transition-all duration-200 focus:scale-[1.02] focus:shadow-md"
                     />
                     <p className="text-xs text-muted-foreground">{t("ocrConfidenceDesc")}</p>
                   </div>
@@ -2319,6 +2432,7 @@ export default function PDFConverter() {
                         fontSizeMultiplier: Number.parseFloat(e.target.value) || 1.0
                       }))}
                       disabled={isConverting}
+                      className="transition-all duration-200 focus:scale-[1.02] focus:shadow-md"
                     />
                     <p className="text-xs text-muted-foreground">{t("fontSizeDesc")}</p>
                   </div>
@@ -2339,6 +2453,7 @@ export default function PDFConverter() {
                         pageMargin: Number.parseInt(e.target.value) || 50
                       }))}
                       disabled={isConverting}
+                      className="transition-all duration-200 focus:scale-[1.02] focus:shadow-md"
                     />
                     <p className="text-xs text-muted-foreground">{t("pageMarginDesc")}</p>
                   </div>
@@ -2359,6 +2474,7 @@ export default function PDFConverter() {
                         textLayerOpacity: Number.parseFloat(e.target.value) || 0.0
                       }))}
                       disabled={isConverting}
+                      className="transition-all duration-200 focus:scale-[1.02] focus:shadow-md"
                     />
                     <p className="text-xs text-muted-foreground">{t("textLayerDesc")}</p>
                   </div>
@@ -2453,19 +2569,21 @@ export default function PDFConverter() {
                 {language === "zh" ? "转换操作按钮" : "Conversion Action Buttons"}
               </span>
               
-              <Button
+              <InteractiveButton
                 onClick={convertPDF}
                 disabled={(
                   isBatchMode 
                     ? selectedFiles.length === 0 
                     : (!selectedFile && !pdfUrl.trim())
                 ) || isConverting}
+                loading={isConverting}
+                loadingText={t("converting")}
                 className="flex-1"
                 aria-describedby="convert-button-description"
                 aria-label={isConverting ? t("converting") : t("startConvert")}
               >
-                {isConverting ? t("converting") : t("startConvert")}
-              </Button>
+                {t("startConvert")}
+              </InteractiveButton>
               <span id="convert-button-description" className="sr-only">
                 {language === "zh" 
                   ? (isBatchMode 
@@ -2478,7 +2596,7 @@ export default function PDFConverter() {
               </span>
               
               {(selectedFile || pdfUrl.trim() || convertedImages.length > 0) && (
-                <Button 
+                <InteractiveButton 
                   variant="outline" 
                   onClick={clearAll} 
                   disabled={isConverting}
@@ -2486,7 +2604,7 @@ export default function PDFConverter() {
                   aria-describedby="clear-button-description"
                 >
                   <X className="h-4 w-4" />
-                </Button>
+                </InteractiveButton>
               )}
               <span id="clear-button-description" className="sr-only">
                 {language === "zh" ? "清除所有已选择的文件和转换结果" : "Clear all selected files and conversion results"}
@@ -2527,7 +2645,7 @@ export default function PDFConverter() {
                           {batchProgress.completedFiles}/{batchProgress.totalFiles} {language === "zh" ? "文件" : "files"}
                         </span>
                         {batchFiles.some(f => f.status === 'error') && !isConverting && (
-                          <Button
+                          <InteractiveButton
                             size="sm"
                             variant="outline"
                             onClick={retryAllFailedFiles}
@@ -2535,7 +2653,7 @@ export default function PDFConverter() {
                             aria-label={language === "zh" ? "重试所有失败的文件" : "Retry all failed files"}
                           >
                             {language === "zh" ? "重试失败" : "Retry Failed"}
-                          </Button>
+                          </InteractiveButton>
                         )}
                       </div>
                     </div>
@@ -2607,7 +2725,7 @@ export default function PDFConverter() {
                   {t("summaryResult")}
                 </span>
                 <div className="flex items-center gap-2">
-                  <Button
+                  <InteractiveButton
                     onClick={() => {
                       navigator.clipboard.writeText(summaryResult)
                       setStatus(t("summaryCopied"))
@@ -2618,8 +2736,8 @@ export default function PDFConverter() {
                   >
                     <Copy className="h-4 w-4" />
                     {t("copySummary")}
-                  </Button>
-                  <Button
+                  </InteractiveButton>
+                  <InteractiveButton
                     onClick={() => {
                       const blob = new Blob([summaryResult], { type: 'text/plain;charset=utf-8' })
                       const url = URL.createObjectURL(blob)
@@ -2636,7 +2754,7 @@ export default function PDFConverter() {
                   >
                     <Download className="h-4 w-4" />
                     {t("downloadSummary")}
-                  </Button>
+                  </InteractiveButton>
                 </div>
               </CardTitle>
             </CardHeader>
@@ -2663,20 +2781,22 @@ export default function PDFConverter() {
                   )}
                 </span>
                 <div className="flex items-center gap-2">
-                  <Button onClick={downloadAll} className="flex items-center gap-2">
+                  <InteractiveButton onClick={downloadAll} className="flex items-center gap-2">
                     <Download className="h-4 w-4" />
                     {t("downloadAll")}
-                  </Button>
+                  </InteractiveButton>
                   {format === "application/pdf" && (
-                    <Button 
+                    <InteractiveButton 
                       onClick={generateSearchablePdf} 
                       disabled={isGeneratingPdf || ocrResults.length === 0}
+                      loading={isGeneratingPdf}
+                      loadingText={t("generatingPdf")}
                       className="flex items-center gap-2"
                       variant="outline"
                     >
                       <FileText className="h-4 w-4" />
-                      {isGeneratingPdf ? t("generatingPdf") : t("downloadSearchablePdf")}
-                    </Button>
+                      {t("downloadSearchablePdf")}
+                    </InteractiveButton>
                   )}
                   {generatedPdfUrl && (
                     <Button 
@@ -2686,7 +2806,7 @@ export default function PDFConverter() {
                         link.download = 'searchable-document.pdf'
                         link.click()
                       }}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95"
                       variant="default"
                     >
                       <Download className="h-4 w-4" />
@@ -2711,7 +2831,7 @@ export default function PDFConverter() {
                             size="sm"
                             variant="outline"
                             onClick={() => downloadBatchFile(batchFile)}
-                            className="flex items-center gap-1"
+                            className="flex items-center gap-1 transition-all duration-200 hover:scale-105 active:scale-95"
                           >
                             <Download className="h-3 w-3" />
                             下载
@@ -2735,15 +2855,16 @@ export default function PDFConverter() {
                                   unoptimized
                                 />
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                                  <Button size="sm" onClick={() => downloadSingle(image)} className="flex items-center gap-1">
+                                  <InteractiveButton size="sm" onClick={() => downloadSingle(image)} className="flex items-center gap-1">
                                     <Download className="h-3 w-3" />
                                     下载
-                                  </Button>
-                                  <Button 
+                                  </InteractiveButton>
+                                  <InteractiveButton 
                                     size="sm" 
                                     variant={ocrResult?.isExtracting ? "default" : ocrResult?.isCompleted && ocrResult?.text ? "outline" : "secondary"}
                                     onClick={() => extractTextFromImage(image.pageNumber, image.dataUrl, batchFile.id)}
                                     disabled={ocrResult?.isExtracting}
+                                    loading={ocrResult?.isExtracting}
                                     className={`flex items-center gap-1 ${
                                       ocrResult?.isExtracting ? 'bg-blue-600 hover:bg-blue-700' : 
                                       ocrResult?.isCompleted && ocrResult?.text ? 'border-green-500 text-green-600 hover:bg-green-50' : ''
@@ -2761,7 +2882,7 @@ export default function PDFConverter() {
                                     {ocrResult?.isExtracting ? "识别中" : 
                                      ocrResult?.isCompleted && ocrResult?.text ? "已识别" : 
                                      "识别文字"}
-                                  </Button>
+                                  </InteractiveButton>
                                 </div>
                               </div>
                               
@@ -2786,14 +2907,14 @@ export default function PDFConverter() {
                                       <div className="bg-gray-50 dark:bg-gray-900 border rounded-lg p-3 space-y-2">
                                         <div className="flex items-center justify-between">
                                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">识别结果</span>
-                                          <Button
+                                          <InteractiveButton
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => copyTextToClipboard(ocrResult.text)}
                                             className="h-6 px-2"
                                           >
                                             <Copy className="h-3 w-3" />
-                                          </Button>
+                                          </InteractiveButton>
                                         </div>
                                         <div className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap max-h-32 overflow-y-auto">
                                           {ocrResult.text}
@@ -2829,7 +2950,7 @@ export default function PDFConverter() {
                           role="img"
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2" role="group" aria-label={language === "zh" ? "图像操作" : "Image actions"}>
-                          <Button 
+                          <InteractiveButton 
                             size="sm" 
                             onClick={() => downloadSingle(image)} 
                             className="flex items-center gap-1"
@@ -2837,12 +2958,13 @@ export default function PDFConverter() {
                           >
                             <Download className="h-3 w-3" />
                             {t("download")}
-                          </Button>
-                          <Button 
+                          </InteractiveButton>
+                          <InteractiveButton 
                             size="sm" 
                             variant={ocrResult?.isExtracting ? "default" : ocrResult?.isCompleted && ocrResult?.text ? "outline" : "secondary"}
                             onClick={() => extractTextFromImage(image.pageNumber, image.dataUrl)}
                             disabled={ocrResult?.isExtracting}
+                            loading={ocrResult?.isExtracting}
                             className={`flex items-center gap-1 ${
                               ocrResult?.isExtracting ? 'bg-blue-600 hover:bg-blue-700' : 
                               ocrResult?.isCompleted && ocrResult?.text ? 'border-green-500 text-green-600 hover:bg-green-50' : ''
@@ -2868,7 +2990,7 @@ export default function PDFConverter() {
                             {ocrResult?.isExtracting ? t("extractingText") : 
                              ocrResult?.isCompleted && ocrResult?.text ? t("textExtracted") : 
                              t("extractText")}
-                          </Button>
+                          </InteractiveButton>
                         </div>
                       </div>
                       
@@ -2897,7 +3019,7 @@ export default function PDFConverter() {
                               variant="outline"
                               size="sm"
                               onClick={() => toggleOcrResult(image.pageNumber)}
-                              className="w-full flex items-center gap-2"
+                              className="w-full flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95"
                               aria-expanded={isShowingOcr}
                               aria-controls={`ocr-result-${image.pageNumber}`}
                               aria-label={language === "zh" 
@@ -2924,7 +3046,7 @@ export default function PDFConverter() {
                                   >
                                     {language === "zh" ? "识别结果" : "OCR Result"}
                                   </span>
-                                  <Button
+                                  <InteractiveButton
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => copyTextToClipboard(ocrResult.text)}
@@ -2932,7 +3054,7 @@ export default function PDFConverter() {
                                     aria-label={language === "zh" ? "复制识别的文字到剪贴板" : "Copy extracted text to clipboard"}
                                   >
                                     <Copy className="h-3 w-3" />
-                                  </Button>
+                                  </InteractiveButton>
                                 </div>
                                 <div 
                                   className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap max-h-32 overflow-y-auto"
@@ -2961,18 +3083,6 @@ export default function PDFConverter() {
             <Card>
               <CardContent className="space-y-4">
                 <div className="space-y-4">
-                  {/* <div className="text-center">
-                    <FileText className="h-12 w-12 mx-auto text-primary mb-2" />
-                    <h3 className="text-lg font-semibold">
-                      {language === "zh" ? "PDF转Word" : "PDF to Word"}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {language === "zh" 
-                        ? "将PDF文档转换为可编辑的Word文档，保持原有格式和布局" 
-                        : "Convert PDF documents to editable Word documents while preserving original formatting and layout"}
-                    </p>
-                  </div> */}
-
                   {/* 文件上传区域 */}
                   <div
                     className={`flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
@@ -3096,26 +3206,22 @@ export default function PDFConverter() {
 
                   {/* 转换按钮 */}
                   <div className="flex gap-2">
-                    <Button 
+                    <InteractiveButton 
                       onClick={handlePdfToWordConvert}
                       disabled={!selectedFile || isConverting}
+                      loading={isConverting}
+                      loadingText={language === "zh" ? "转换中..." : "Converting..."}
                       className="flex-1"
                     >
-                      {isConverting ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                          {language === "zh" ? "转换中..." : "Converting..."}
-                        </>
-                      ) : (
-                        language === "zh" ? "开始转换" : "Start Conversion"
-                      )}
-                    </Button>
+                      {language === "zh" ? "开始转换" : "Start Conversion"}
+                    </InteractiveButton>
                     
                     {(selectedFile || convertedWordUrl) && (
                       <Button 
                         variant="outline" 
                         onClick={clearWordConversion} 
                         disabled={isConverting}
+                        className="transition-all duration-200 hover:scale-105 active:scale-95 disabled:hover:scale-100"
                         aria-label={language === "zh" ? "清除文件和结果" : "Clear file and results"}
                       >
                         <X className="h-4 w-4" />
@@ -3281,7 +3387,7 @@ export default function PDFConverter() {
               <a
                 href="https://github.com/A-W-C-J/pdf-to-image-project"
                 target="_blank"
-                rel="nofollow noopener noreferrer"
+                rel="dofollow noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Github className="h-4 w-4" />
@@ -3348,6 +3454,37 @@ export default function PDFConverter() {
               }}
             >
               {t('goToLogin')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 额度不足提示弹窗 */}
+      <Dialog open={showQuotaDialog} onOpenChange={setShowQuotaDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-500" />
+              {t('quotaInsufficient')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('quotaInsufficientDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowQuotaDialog(false)}
+            >
+              {language === "zh" ? "取消" : "Cancel"}
+            </Button>
+            <Button
+              onClick={() => {
+                setShowQuotaDialog(false)
+                window.location.href = '/topup'
+              }}
+            >
+              {language === "zh" ? "立即充值" : "Recharge Now"}
             </Button>
           </DialogFooter>
         </DialogContent>

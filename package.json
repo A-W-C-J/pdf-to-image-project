@@ -83,6 +83,7 @@
     "rehype-raw": "latest",
     "remark-gfm": "latest",
     "sonner": "^1.7.4",
+    "stripe": "^18.5.0",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "tesseract.js": "latest",

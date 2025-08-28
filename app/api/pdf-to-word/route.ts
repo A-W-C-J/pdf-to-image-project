@@ -4,6 +4,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
+// 移除 pdfjs-dist 导入以避免服务器端兼容性问题
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const file = formData.get('file') as File
+    const pageCountParam = formData.get('pageCount') as string
 
     if (!file) {
   
@@ -49,6 +51,60 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // 使用客户端传递的页数，如果没有则使用文件大小估算
+    let pdfPageCount = 1
+    if (pageCountParam && !isNaN(parseInt(pageCountParam))) {
+      pdfPageCount = parseInt(pageCountParam)
+      console.log('使用客户端传递的页数:', pdfPageCount)
+    } else {
+      // 如果客户端没有传递页数，使用文件大小估算作为备用方案
+      const fileSizeKB = file.size / 1024
+      if (fileSizeKB < 500) {
+        pdfPageCount = Math.max(1, Math.round(fileSizeKB / 50))
+      } else if (fileSizeKB < 2000) {
+        pdfPageCount = Math.max(1, Math.round(fileSizeKB / 80))
+      } else {
+        pdfPageCount = Math.max(1, Math.round(fileSizeKB / 120))
+      }
+      console.log('使用文件大小估算页数:', pdfPageCount)
+    }
+
+    const bytes = await file.arrayBuffer()
+    
+    // 检查用户剩余额度
+    const { data: quotaData, error: quotaError } = await supabase
+      .rpc('get_user_quota', { p_user_id: user.id })
+    
+    if (quotaError) {
+      console.error('获取用户额度失败:', quotaError)
+      return new Response(JSON.stringify({ 
+        error: '获取用户额度失败',
+        code: 'QUOTA_CHECK_FAILED'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+    
+    // quotaData是数组，如果用户没有额度记录则为空数组
+    // 取第一条记录的remaining_quota，如果没有记录则默认为0
+    const remainingQuota = quotaData && quotaData.length > 0 ? quotaData[0].remaining_quota : 0
+    
+    if (remainingQuota < pdfPageCount) {
+      return new Response(JSON.stringify({ 
+        error: `额度不足！当前剩余额度：${remainingQuota}页，需要：${pdfPageCount}页。请前往充值。`,
+        code: 'INSUFFICIENT_QUOTA',
+        data: {
+          required: pdfPageCount,
+          remaining: remainingQuota,
+          shortfall: pdfPageCount - remainingQuota
+        }
+      }), {
+        status: 402, // Payment Required
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
     const apiKey = process.env.DOC2X_APIKEY
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'DOC2X API密钥未配置' }), {
@@ -63,14 +119,32 @@ export async function POST(request: NextRequest) {
     
     try {
       // 保存上传的文件到临时目录
-      const bytes = await file.arrayBuffer()
       const buffer = new Uint8Array(bytes)
       await writeFile(tempFilePath, buffer)
 
       // 调用DOC2X API进行转换
       const convertResult = await convertPdfToWord(tempFilePath, apiKey)
       
-      return new Response(JSON.stringify(convertResult), {
+      // 如果转换成功，扣除相应额度
+      if (convertResult.success) {
+        const { error: consumeError } = await supabase
+          .rpc('consume_user_quota', { 
+            p_user_id: user.id, 
+            p_pages_count: pdfPageCount 
+          })
+        
+        if (consumeError) {
+          console.error('扣除用户额度失败:', consumeError)
+          // 注意：这里转换已经成功，但额度扣除失败
+          // 可以选择记录日志但仍然返回成功结果
+        }
+      }
+      
+      return new Response(JSON.stringify({
+        ...convertResult,
+        pagesProcessed: pdfPageCount,
+        quotaConsumed: convertResult.success ? pdfPageCount : 0
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       })

@@ -45,20 +45,15 @@ export default async function TagPage({ params }: { params: { tag: string } }) {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* 面包屑导航 */}
-          <Breadcrumb />
+          <Breadcrumb 
+            items={[
+              { label: '首页', href: '/' },
+              { label: '技术博客', href: '/blog' },
+              { label: `标签: ${currentTag}`, href: `/blog/tag/${encodeURIComponent(currentTag)}` }
+            ]}
+          />
 
-          {/* 页面标题 */}
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Tag className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold">
-                标签: {currentTag}
-              </h1>
-            </div>
-            <p className="text-muted-foreground text-lg">
-              找到 {posts.length} 篇关于 &ldquo;{currentTag}&rdquo; 的文章
-            </p>
-          </div>
+
 
           {/* 文章列表 */}
           {posts.length === 0 ? (
@@ -87,18 +82,7 @@ export default async function TagPage({ params }: { params: { tag: string } }) {
                           {post.title}
                         </Link>
                       </CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {formatDate(post.created_at)}
-                        </div>
-                        {post.read_time && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            {post.read_time} 分钟阅读
-                          </div>
-                        )}
-                      </div>
+                     
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -120,16 +104,6 @@ export default async function TagPage({ params }: { params: { tag: string } }) {
             </div>
           )}
 
-          {/* 底部导航 */}
-          <div className="mt-12 pt-6 border-t border-border">
-            <Link 
-              href="/blog" 
-              className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors group"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-              返回博客列表
-            </Link>
-          </div>
         </div>
       </main>
     </div>

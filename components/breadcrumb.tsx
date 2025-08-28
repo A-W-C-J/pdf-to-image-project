@@ -36,6 +36,10 @@ export default function Breadcrumb({ items, language: propLanguage }: Breadcrumb
       title: {
         zh: '首页',
         en: 'Home'
+      },
+      topup: {
+        zh: '充值中心',
+        en: 'Top-up Center'
       }
     }
     return translations[key]?.[language] || key
@@ -64,6 +68,9 @@ export default function Breadcrumb({ items, language: propLanguage }: Breadcrumb
           break
         case 'admin':
           label = language === 'zh' ? '管理后台' : 'Admin'
+          break
+        case 'topup':
+          label = t('topup')
           break
         default:
           // 对于动态路由，保持原始值
@@ -119,7 +126,7 @@ export default function Breadcrumb({ items, language: propLanguage }: Breadcrumb
               {index < breadcrumbs.length - 1 ? (
                 <Link
                   href={item.href}
-                  className="hover:text-foreground transition-colors"
+                  className="hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95 px-1 py-0.5 rounded hover:bg-primary/10"
                 >
                   {item.label}
                 </Link>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useLanguage } from '@/lib/i18n'
 import Link from 'next/link'
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { user, isAuthenticated } = useAuth()
@@ -151,5 +151,21 @@ export default function PaymentSuccessPage() {
         </ul>
       </div>
     </div>
+  )
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <div className="text-center mb-8">
+          <Loader2 className="h-16 w-16 text-muted-foreground mx-auto mb-4 animate-spin" />
+          <h1 className="text-3xl font-bold mb-2">Loading...</h1>
+          <p className="text-muted-foreground">Please wait while we load your payment details.</p>
+        </div>
+      </div>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   )
 }

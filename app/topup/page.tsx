@@ -17,7 +17,10 @@ interface StripePrice {
   unit_amount: number | null
   currency: string
   type: string
-  recurring: any
+  recurring: {
+    interval: string
+    interval_count: number
+  } | null
   metadata: Record<string, string>
 }
 

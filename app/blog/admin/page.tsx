@@ -96,14 +96,7 @@ export default function BlogAdminPage() {
     }
   }
 
-  const generateSlug = (title: string): string => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9\u4e00-\u9fa5\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .trim()
-  }
+
 
   const handleSave = async () => {
     if (!formData.title || !formData.content) {
@@ -294,7 +287,7 @@ export default function BlogAdminPage() {
                 } else if (data.content) {
                   generatedTopic += data.content
                 }
-              } catch (e) {
+              } catch {
                 // 忽略解析错误
               }
             }

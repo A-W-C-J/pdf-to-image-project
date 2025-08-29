@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowLeft, Calendar, Clock, Tag } from 'lucide-react'
+import { Tag } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/server'
@@ -31,14 +31,7 @@ export default async function TagPage({ params }: { params: { tag: string } }) {
     return tags && tags.includes(currentTag)
   }) || []
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
+
 
   return (
     <div className="min-h-screen bg-background">

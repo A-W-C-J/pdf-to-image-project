@@ -80,7 +80,6 @@ export function AuthModal({ isOpen, onClose, view = 'sign_in' }: AuthModalProps)
                 anchor: 'text-primary hover:text-primary/80 underline-offset-4 hover:underline',
                 divider: 'border-border',
                 message: 'text-sm text-foreground',
-                messageError: 'text-sm text-destructive',
               },
             }}
             localization={{

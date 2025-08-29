@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
 import { headers } from 'next/headers'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia'
+  apiVersion: '2025-08-27.basil'
 })
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
 
 async function handleSuccessfulPayment(
   session: Stripe.Checkout.Session,
-  supabase: any
+  supabase: SupabaseClient
 ) {
   try {
     const userId = session.metadata?.userId
@@ -148,7 +149,7 @@ async function handleSuccessfulPayment(
 async function updatePaymentRecord(
   paymentIntent: Stripe.PaymentIntent,
   status: string,
-  supabase: any
+  supabase: SupabaseClient
 ) {
   try {
     const { error } = await supabase

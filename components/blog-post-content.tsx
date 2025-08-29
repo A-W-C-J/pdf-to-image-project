@@ -11,6 +11,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
 import { useLanguage } from '@/lib/i18n'
+import { InArticleAd } from '@/components/adsense'
 
 interface BlogPost {
   id: string
@@ -172,6 +173,11 @@ export default function BlogPostContent({ post }: BlogPostContentProps) {
               </div>
             </CardContent>
           </Card>
+
+          {/* 广告 */}
+          <div className="my-8">
+            <InArticleAd />
+          </div>
 
           {/* 相关文章 */}
           <RelatedArticles 

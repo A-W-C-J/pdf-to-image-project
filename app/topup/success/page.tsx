@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -21,31 +21,53 @@ function PaymentSuccessContent() {
   const sessionId = searchParams.get('session_id')
 
   // 获取用户额度
-  const fetchUserQuota = async () => {
-    if (!user?.id) return
+  const fetchUserQuota = useCallback(async () => {
+    console.log('=== 支付成功页面：开始获取用户额度 ===')
+    console.log('用户ID:', user?.id)
+    console.log('Session ID:', sessionId)
+    
+    if (!user?.id) {
+      console.log('❌ 用户ID不存在，无法获取额度')
+      return
+    }
     
     try {
+      console.log('正在创建 Supabase 客户端...')
       const supabase = createClient()
+      console.log('✅ Supabase 客户端创建成功')
+      
+      console.log('正在调用 get_user_quota 函数...')
+      console.log('参数: p_user_id =', user.id)
+      
       const { data, error } = await supabase
         .rpc('get_user_quota', { p_user_id: user.id })
       
+      console.log('get_user_quota 返回结果:')
+      console.log('- data:', data)
+      console.log('- error:', error)
+      
       if (error) {
-        console.error('Failed to fetch user quota:', error)
+        console.error('❌ 获取用户额度失败:', error)
+        console.log('错误详情:', JSON.stringify(error, null, 2))
         setUserQuota(0)
         return
       }
       
-      // data是数组，如果用户没有额度记录则为空数组
-      // 取第一条记录的remaining_quota，如果没有记录则默认为0
       const remainingQuota = data && data.length > 0 ? data[0].remaining_quota : 0
+      console.log('解析的剩余额度:', remainingQuota)
+      console.log('数据详情:', JSON.stringify(data, null, 2))
+      
       setUserQuota(remainingQuota)
+      console.log('✅ 用户额度设置成功:', remainingQuota)
     } catch (error) {
-      console.error('Failed to fetch user quota:', error)
+      console.error('❌ 获取用户额度时发生异常:', error)
+      console.log('异常堆栈:', error instanceof Error ? error.stack : 'No stack trace')
       setUserQuota(0)
     } finally {
       setIsLoadingQuota(false)
+      console.log('=== 支付成功页面：额度获取完成 ===')
     }
-  }
+  }, [user?.id, sessionId])
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -59,7 +81,7 @@ function PaymentSuccessContent() {
         fetchUserQuota()
       }, 2000)
     }
-  }, [isAuthenticated, user?.id, router])
+  }, [isAuthenticated, user?.id, router, fetchUserQuota])
 
   if (!isAuthenticated) {
     return null

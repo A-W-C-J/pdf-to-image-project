@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { AuthButton } from './auth-modal'
 import {
@@ -28,32 +28,54 @@ export function UserMenu() {
   const [isLoadingQuota, setIsLoadingQuota] = useState(false)
 
   // 获取用户额度
-  const fetchUserQuota = async () => {
-    if (!user?.id) return
+  const fetchUserQuota = useCallback(async () => {
+    console.log('=== 用户菜单：开始获取用户额度 ===')
+    console.log('用户ID:', user?.id)
+    console.log('当前时间:', new Date().toISOString())
+    
+    if (!user?.id) {
+      console.log('❌ 用户ID不存在，无法获取额度')
+      return
+    }
     
     try {
       setIsLoadingQuota(true)
+      console.log('正在创建 Supabase 客户端...')
       const supabase = createClient()
+      console.log('✅ Supabase 客户端创建成功')
+      
+      console.log('正在调用 get_user_quota 函数...')
+      console.log('参数: p_user_id =', user.id)
+      
       const { data, error } = await supabase
         .rpc('get_user_quota', { p_user_id: user.id })
       
+      console.log('get_user_quota 返回结果:')
+      console.log('- data:', data)
+      console.log('- error:', error)
+      
       if (error) {
-        console.error('获取用户额度失败:', error)
+        console.error('❌ 获取用户额度失败:', error)
+        console.log('错误详情:', JSON.stringify(error, null, 2))
         setUserQuota(0)
         return
       }
       
-      // data是数组，如果用户没有额度记录则为空数组
-      // 取第一条记录的remaining_quota，如果没有记录则默认为0
       const remainingQuota = data && data.length > 0 ? data[0].remaining_quota : 0
+      console.log('解析的剩余额度:', remainingQuota)
+      console.log('数据详情:', JSON.stringify(data, null, 2))
+      
       setUserQuota(remainingQuota)
+      console.log('✅ 用户额度设置成功:', remainingQuota)
     } catch (error) {
-      console.error('获取用户额度失败:', error)
+      console.error('❌ 获取用户额度时发生异常:', error)
+      console.log('异常堆栈:', error instanceof Error ? error.stack : 'No stack trace')
       setUserQuota(0)
     } finally {
       setIsLoadingQuota(false)
+      console.log('=== 用户菜单：额度获取完成 ===')
     }
-  }
+  }, [user?.id])
 
   // 监听用户变化，获取额度
   useEffect(() => {
@@ -62,7 +84,7 @@ export function UserMenu() {
     } else {
       setUserQuota(null)
     }
-  }, [isAuthenticated, user?.id])
+  }, [isAuthenticated, user?.id, fetchUserQuota, setUserQuota])
 
   // 定期刷新额度（每30秒）
   useEffect(() => {
@@ -73,7 +95,7 @@ export function UserMenu() {
     }, 30000)
     
     return () => clearInterval(interval)
-  }, [isAuthenticated])
+  }, [isAuthenticated, fetchUserQuota])
 
   if (!isAuthenticated) {
     return <AuthButton />

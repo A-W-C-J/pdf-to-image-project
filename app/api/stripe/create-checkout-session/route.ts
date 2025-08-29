@@ -44,7 +44,9 @@ export async function POST(request: NextRequest) {
       metadata: {
         userId: user.id
       },
-      customer_email: user.email || undefined
+      customer_email: user.email || undefined,
+      // 确保 webhook 包含 line_items 和产品信息
+      expand: ['line_items.data.price.product']
     })
 
     return NextResponse.json({ 

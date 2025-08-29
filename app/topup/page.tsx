@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,7 +45,7 @@ export default function TopupPage() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
 
   // 获取用户额度
-  const fetchUserQuota = async () => {
+  const fetchUserQuota = useCallback(async () => {
     if (!user?.id) return
     
     try {
@@ -60,8 +60,6 @@ export default function TopupPage() {
         return
       }
       
-      // data是数组，如果用户没有额度记录则为空数组
-      // 取第一条记录的remaining_quota，如果没有记录则默认为0
       const remainingQuota = data && data.length > 0 ? data[0].remaining_quota : 0
       setUserQuota(remainingQuota)
     } catch (error) {
@@ -70,10 +68,10 @@ export default function TopupPage() {
     } finally {
       setIsLoadingQuota(false)
     }
-  }
+  }, [user?.id])
 
   // 获取Stripe产品信息
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setIsLoadingProducts(true)
       const response = await fetch('/api/stripe/products')
@@ -90,7 +88,7 @@ export default function TopupPage() {
     } finally {
       setIsLoadingProducts(false)
     }
-  }
+  }, [])
 
   // 处理支付
   const handlePayment = async (priceId: string) => {
@@ -150,7 +148,7 @@ export default function TopupPage() {
     
     // 加载产品信息
     fetchProducts()
-  }, [loading, isAuthenticated, user?.id, router])
+  }, [loading, isAuthenticated, user?.id, router, fetchUserQuota, fetchProducts])
 
   // 显示加载状态
   if (loading) {

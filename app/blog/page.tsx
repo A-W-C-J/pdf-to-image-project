@@ -12,6 +12,8 @@ import { useLanguage } from "@/lib/i18n"
 import { createClient } from "@/lib/supabase/client"
 import Breadcrumb from "@/components/breadcrumb"
 import TagCloud from "@/components/tag-cloud"
+import { InArticleAd } from "@/components/adsense"
+import { AutoRelaxedAd } from "@/components/adsense"
 
 interface BlogPost {
   id: string
@@ -159,6 +161,9 @@ export default function BlogPage() {
           <TagCloud language={language} maxTags={15} />
         </div>
 
+        {/* Google AdSense 广告 */}
+        <InArticleAd />
+
         {/* 加载状态 */}
         {loading && (
           <div className="text-center py-12">
@@ -240,6 +245,7 @@ export default function BlogPage() {
             )}
           </div>
         )}
+        <AutoRelaxedAd />
       </main>
     </div>
   )

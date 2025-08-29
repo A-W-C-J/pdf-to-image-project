@@ -86,6 +86,8 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/favicon.png" />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5218561367407219"
+     crossOrigin="anonymous"></script>
         <style>{`
 html {
   font-family: ${GeistSans.style.fontFamily};

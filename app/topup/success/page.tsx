@@ -22,50 +22,50 @@ function PaymentSuccessContent() {
 
   // 获取用户额度
   const fetchUserQuota = useCallback(async () => {
-    console.log('=== 支付成功页面：开始获取用户额度 ===')
-    console.log('用户ID:', user?.id)
-    console.log('Session ID:', sessionId)
+    // 支付成功页面：开始获取用户额度
+    // 用户ID检查
+    // Session ID检查
     
     if (!user?.id) {
-      console.log('❌ 用户ID不存在，无法获取额度')
+      // 用户ID不存在，无法获取额度
       return
     }
     
     try {
-      console.log('正在创建 Supabase 客户端...')
+      // 正在创建 Supabase 客户端
       const supabase = createClient()
-      console.log('✅ Supabase 客户端创建成功')
+      // Supabase 客户端创建成功
       
-      console.log('正在调用 get_user_quota 函数...')
-      console.log('参数: p_user_id =', user.id)
+      // 正在调用 get_user_quota 函数
+      // 参数检查
       
       const { data, error } = await supabase
         .rpc('get_user_quota', { p_user_id: user.id })
       
-      console.log('get_user_quota 返回结果:')
-      console.log('- data:', data)
-      console.log('- error:', error)
+      // get_user_quota 返回结果
+      // data检查
+      // error检查
       
       if (error) {
-        console.error('❌ 获取用户额度失败:', error)
-        console.log('错误详情:', JSON.stringify(error, null, 2))
+        // 获取用户额度失败
+        // 错误详情
         setUserQuota(0)
         return
       }
       
       const remainingQuota = data && data.length > 0 ? data[0].remaining_quota : 0
-      console.log('解析的剩余额度:', remainingQuota)
-      console.log('数据详情:', JSON.stringify(data, null, 2))
+      // 解析的剩余额度
+      // 数据详情
       
       setUserQuota(remainingQuota)
-      console.log('✅ 用户额度设置成功:', remainingQuota)
+      // 用户额度设置成功
     } catch (error) {
-      console.error('❌ 获取用户额度时发生异常:', error)
-      console.log('异常堆栈:', error instanceof Error ? error.stack : 'No stack trace')
+      // 获取用户额度时发生异常
+      // 异常堆栈
       setUserQuota(0)
     } finally {
       setIsLoadingQuota(false)
-      console.log('=== 支付成功页面：额度获取完成 ===')
+      // 支付成功页面：额度获取完成
     }
   }, [user?.id, sessionId])
 

@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // 记录错误信息
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    // ErrorBoundary caught an error
     
     this.setState({
       error,
@@ -167,7 +167,7 @@ export function useErrorHandler() {
   }, [])
   
   const handleError = React.useCallback((error: Error) => {
-    console.error('Async error caught:', error)
+    // Async error caught
     setError(error)
     
     // 在生产环境中发送错误报告

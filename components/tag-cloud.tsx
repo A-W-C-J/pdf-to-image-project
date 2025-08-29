@@ -36,7 +36,7 @@ export default function TagCloud({ language, maxTags = 20 }: TagCloudProps) {
           .eq('published', true)
 
         if (error) {
-          console.error('Error fetching tags:', error)
+          // Error fetching tags
           return
         }
 
@@ -62,7 +62,7 @@ export default function TagCloud({ language, maxTags = 20 }: TagCloudProps) {
 
         setTags(sortedTags)
       } catch (err) {
-        console.error('Error fetching tags:', err)
+        // Error fetching tags
       } finally {
         setLoading(false)
       }

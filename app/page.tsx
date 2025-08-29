@@ -389,7 +389,7 @@ export default function PDFConverter() {
       
       return newEngine
     } catch (error) {
-      console.error('WebLLM initialization failed:', error)
+      // WebLLM initialization failed
       setIsModelLoading(false)
       setError(`模型加载失败: ${error instanceof Error ? error.message : String(error)}`)
       throw error
@@ -439,7 +439,7 @@ export default function PDFConverter() {
       
       return summary
     } catch (error) {
-      console.error('Summary generation failed:', error)
+      // Summary generation failed
       setError(`总结生成失败: ${error instanceof Error ? error.message : String(error)}`)
       throw error
     } finally {
@@ -492,7 +492,7 @@ export default function PDFConverter() {
         }
         
       } catch (error) {
-        console.error(`OCR extraction failed for page ${image.pageNumber}:`, error)
+        // OCR extraction failed for page
         // 继续处理下一页，不中断整个流程
       }
     }
@@ -593,7 +593,7 @@ export default function PDFConverter() {
       }, 500)
       
     } catch (error) {
-      console.error("OCR extraction failed:", error)
+      // OCR extraction failed
       setOcrResults(prev => 
         prev.map(r => r.pageNumber === pageNumber ? { ...r, text: "", isExtracting: false, isCompleted: true } : r)
       )
@@ -607,7 +607,7 @@ export default function PDFConverter() {
       await navigator.clipboard.writeText(text)
       setStatus(t("textCopied"))
     } catch (error) {
-      console.error("Failed to copy text:", error)
+      // Failed to copy text
     }
   }
 
@@ -705,7 +705,7 @@ export default function PDFConverter() {
       
       setStatus(t("pdfGenerated"))
     } catch (error) {
-      console.error('PDF generation failed:', error)
+      // PDF generation failed
       setError(t("pdfGenerationFailed"))
     } finally {
       setIsGeneratingPdf(false)
@@ -902,7 +902,7 @@ export default function PDFConverter() {
             try {
               applyWatermark(canvas, watermarkText, watermarkPosition, watermarkOpacity)
             } catch (watermarkError) {
-              console.warn('Failed to apply watermark:', watermarkError)
+              // Failed to apply watermark
               // 水印失败不应该阻止合并过程
             }
           }
@@ -1442,10 +1442,10 @@ export default function PDFConverter() {
           const pdfDocument = await loadingTask.promise
           pageCount = pdfDocument.numPages
           
-          console.log('PDF页数解析成功:', pageCount)
+          // PDF页数解析成功
         }
       } catch (pdfError) {
-        console.warn('PDF页数解析失败，使用文件大小估算:', pdfError)
+        // PDF页数解析失败，使用文件大小估算
         // 如果PDF.js解析失败，使用文件大小估算
         const fileSizeKB = selectedFile.size / 1024
         if (fileSizeKB < 500) {
@@ -1495,7 +1495,7 @@ export default function PDFConverter() {
           try {
             // 优先使用API返回的预览内容
             if (result.data.previewContent) {
-              console.log('使用API返回的预览内容')
+              // 使用API返回的预览内容
               if (selectedFormat === 'docx') {
                 // DOCX格式的预览内容是ArrayBuffer
                 setConvertedWordContent(result.data.previewContent)
@@ -1506,7 +1506,7 @@ export default function PDFConverter() {
               setShowPreview(true)
             } else {
               // 如果没有预览内容，则尝试下载
-              console.log('API未返回预览内容，尝试下载文件')
+              // API未返回预览内容，尝试下载文件
               const previewResponse = await fetch(result.data.downloadUrl)
               
               if (previewResponse.ok) {
@@ -1523,18 +1523,18 @@ export default function PDFConverter() {
                 }
                 setShowPreview(true)
               } else {
-                console.warn('获取预览内容失败: HTTP', previewResponse.status)
+                // 获取预览内容失败
               }
             }
           } catch (previewError) {
-            console.warn('获取预览内容失败:', previewError)
+            // 获取预览内容失败
           }
         }
       } else {
         throw new Error(result.error || (language === "zh" ? "转换失败" : "Conversion failed"))
       }
     } catch (error) {
-      console.error('PDF转Word错误:', error)
+      // PDF转Word错误
       let errorMessage = language === "zh" ? "转换过程中发生错误" : "An error occurred during conversion"
       
       if (error instanceof Error) {
@@ -1588,8 +1588,8 @@ export default function PDFConverter() {
 
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
 
-      console.log("[v0] PDF.js version:", pdfjsLib.version)
-      console.log("[v0] Worker source set to:", pdfjsLib.GlobalWorkerOptions.workerSrc)
+      // PDF.js version
+      // Worker source set
 
       let arrayBuffer: ArrayBuffer
 
@@ -1688,7 +1688,7 @@ export default function PDFConverter() {
           setConvertedImages([mergedImage])
           setStatus(t("mergeComplete"))
         } catch (mergeError) {
-          console.error("页面合并错误:", mergeError)
+          // 页面合并错误
           // 合并失败时，回退到显示单独的页面
           setConvertedImages(images)
           setError(`${t("mergeError")}: ${mergeError instanceof Error ? mergeError.message : String(mergeError)}`)
@@ -1713,13 +1713,13 @@ export default function PDFConverter() {
             setError('未能从PDF中提取到文本内容，无法生成总结')
           }
         } catch (summaryError) {
-          console.error('Summary generation error:', summaryError)
+          // Summary generation error
           setError(`总结生成失败: ${summaryError instanceof Error ? summaryError.message : String(summaryError)}`)
         }
       }
       
     } catch (err) {
-      console.error("PDF转换错误:", err)
+      // PDF转换错误
       if (err instanceof Error && err.message.includes("password")) {
         setShowPasswordInput(true)
         setError(t("passwordRequired"))

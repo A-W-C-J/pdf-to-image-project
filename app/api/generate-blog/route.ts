@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
                         blogData = JSON.parse(jsonString)
                       } catch (parseError) {
                         // 如果解析失败，尝试从文本中提取信息
-                        console.error("JSON解析失败，尝试文本解析:", parseError)
+                        // JSON解析失败，尝试文本解析
                         blogData = {
                           title: `${topic}完整指南`,
                           excerpt: `关于${topic}的专业介绍和实践指南，涵盖核心概念、最佳实践和实际应用案例。`,
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
             }
           }
         } catch (error: unknown) {
-          console.error("流式生成错误:", error)
+          // 流式生成错误
           controller.enqueue(`data: ${JSON.stringify({ type: "error", message: error instanceof Error ? error.message : "AI生成失败" })}\n\n`)
           controller.close()
         }
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: unknown) {
-    console.error("AI生成错误:", error)
+    // AI生成错误
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "AI生成失败" }), {
       status: 500,
       headers: { "Content-Type": "application/json" }

@@ -20,7 +20,7 @@ async function getAllTags(): Promise<{ tag: string; lastModified: Date }[]> {
       .eq("published", true)
     
     if (error) {
-      console.error("Error fetching blog posts for tag sitemap:", error)
+      // Error fetching blog posts for tag sitemap
       return []
     }
     
@@ -43,7 +43,7 @@ async function getAllTags(): Promise<{ tag: string; lastModified: Date }[]> {
       lastModified
     }))
   } catch (error) {
-    console.error("Error in getAllTags:", error)
+    // Error in getAllTags
     return []
   }
 }
@@ -55,7 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `https://www.pdf2img.top/blog/tag/${encodeURIComponent(tag)}`,
     lastModified,
     changeFrequency: "weekly" as const,
-    priority: 0.6,
+    priority: 0.5,
     alternates: {
       languages: {
         en: `https://www.pdf2img.top/en/blog/tag/${encodeURIComponent(tag)}`,

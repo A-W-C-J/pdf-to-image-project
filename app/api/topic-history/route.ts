@@ -19,13 +19,13 @@ export async function GET(request: NextRequest) {
       .limit(limit)
     
     if (error) {
-      console.error('Error fetching topic history:', error)
+      // Error fetching topic history
       return NextResponse.json({ error: '获取主题历史失败' }, { status: 500 })
     }
     
     return NextResponse.json({ topics: topics || [] })
   } catch (error) {
-    console.error('Topic history API error:', error)
+    // Topic history API error
     return NextResponse.json({ error: '服务器错误' }, { status: 500 })
   }
 }
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       .single()
     
     if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing topic:', checkError)
+      // Error checking existing topic
       return NextResponse.json({ error: '检查主题失败' }, { status: 500 })
     }
     
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         .eq('id', existingTopic.id)
       
       if (updateError) {
-        console.error('Error updating topic:', updateError)
+        // Error updating topic
         return NextResponse.json({ error: '更新主题失败' }, { status: 500 })
       }
     } else {
@@ -79,14 +79,14 @@ export async function POST(request: NextRequest) {
         })
       
       if (insertError) {
-        console.error('Error inserting topic:', insertError)
+        // Error inserting topic
         return NextResponse.json({ error: '保存主题失败' }, { status: 500 })
       }
     }
     
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Topic history POST API error:', error)
+    // Topic history POST API error
     return NextResponse.json({ error: '服务器错误' }, { status: 500 })
   }
 }

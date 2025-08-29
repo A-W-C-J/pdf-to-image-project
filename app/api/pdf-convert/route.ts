@@ -100,11 +100,11 @@ export async function POST(request: NextRequest) {
       try {
         await unlink(tempFilePath)
       } catch (error) {
-        console.warn('清理临时文件失败:', error)
+        // 清理临时文件失败
       }
     }
   } catch (error) {
-    console.error('PDF转换错误:', error)
+    // PDF转换错误
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : '转换失败，请稍后重试' 
     }), {
@@ -122,23 +122,23 @@ async function convertPdfToFile(filePath: string, apiKey: string, format: string
     const preuploadData = await getPreuploadUrl(apiKey)
     const { url: uploadUrl, uid: uuid } = preuploadData
     
-    console.log('获取到预上传URL和UUID:', { uploadUrl: uploadUrl ? 'OK' : 'MISSING', uuid })
+    // 获取到预上传URL和UUID
     
     // 2. 上传文件
     await uploadFileToUrl(filePath, uploadUrl)
-    console.log('文件上传完成')
+    // 文件上传完成
     
     // 3. 等待解析完成
     await waitForParseComplete(uuid, apiKey)
-    console.log('文件解析完成')
+    // 文件解析完成
     
     // 4. 启动转换
     await startFileConversion(uuid, apiKey, format, formulaMode)
-    console.log('转换启动成功')
+    // 转换启动成功
     
     // 5. 轮询转换结果
     const finalResult = await pollConversionResult(uuid, apiKey)
-    console.log('转换完成，获取到最终结果')
+    // 转换完成，获取到最终结果
     
     // 6. 如果是MD、TEX或DOCX格式，需要下载并解压压缩包提取内容
     if ((format === 'md' || format === 'tex' || format === 'docx') && finalResult.url) {
@@ -162,7 +162,7 @@ async function convertPdfToFile(filePath: string, apiKey: string, format: string
           }
         }
       } catch (error) {
-        console.error(`提取${format.toUpperCase()}内容失败:`, error)
+        // 提取内容失败
         // 如果提取失败，仍然返回下载URL
       }
     }
@@ -177,13 +177,13 @@ async function convertPdfToFile(filePath: string, apiKey: string, format: string
       }
     }
   } catch (error) {
-    console.error('PDF转换过程中出错:', error)
+    // PDF转换过程中出错
     throw error
   }
 }
 
 async function getPreuploadUrl(apiKey: string) {
-  console.log('正在获取预上传URL...')
+  // 正在获取预上传URL
   
   const response = await fetch('https://v2.doc2x.noedgeai.com/api/v2/parse/preupload', {
     method: 'POST',
@@ -193,19 +193,19 @@ async function getPreuploadUrl(apiKey: string) {
     }
   })
 
-  console.log('预上传URL响应状态:', response.status)
+  // 预上传URL响应状态
   
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('获取预上传URL失败:', response.status, errorText)
+    // 获取预上传URL失败
     throw new Error(`获取预上传URL失败: ${response.status} - ${errorText}`)
   }
 
   const result = await response.json()
-  console.log('预上传URL响应:', result)
+  // 预上传URL响应
   
   if (result.code !== 'success') {
-    console.error('预上传URL API返回错误:', result)
+    // 预上传URL API返回错误
     throw new Error(`获取预上传URL失败: ${result.message || '未知错误'}`)
   }
   
@@ -213,7 +213,7 @@ async function getPreuploadUrl(apiKey: string) {
 }
 
 async function uploadFileToUrl(filePath: string, uploadUrl: string) {
-  console.log('正在上传文件到:', uploadUrl)
+  // 正在上传文件到
   
   const fs = await import('fs')
   const fileStream = fs.createReadStream(filePath)
@@ -224,20 +224,20 @@ async function uploadFileToUrl(filePath: string, uploadUrl: string) {
     duplex: 'half'
   } as RequestInit)
   
-  console.log('文件上传响应状态:', response.status)
+  // 文件上传响应状态
   
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('文件上传失败:', response.status, errorText)
+    // 文件上传失败
     throw new Error(`文件上传失败: ${response.status} - ${errorText}`)
   }
 }
 
 async function waitForParseComplete(uuid: string, apiKey: string, maxAttempts = 60) {
-  console.log('等待文件解析完成，UUID:', uuid)
+  // 等待文件解析完成
   
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    console.log(`检查解析状态，第 ${attempt}/${maxAttempts} 次尝试`)
+    // 检查解析状态
     
     const response = await fetch(`https://v2.doc2x.noedgeai.com/api/v2/parse/status?uid=${uuid}`, {
       method: 'GET',
@@ -248,34 +248,34 @@ async function waitForParseComplete(uuid: string, apiKey: string, maxAttempts = 
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('检查解析状态失败:', response.status, errorText)
+      // 检查解析状态失败
       throw new Error(`检查解析状态失败: ${response.status} - ${errorText}`)
     }
 
     const result = await response.json()
-    console.log('解析状态响应:', result)
+    // 解析状态响应
     
     if (result.code !== 'success') {
-      console.error('解析状态API返回错误:', result)
+      // 解析状态API返回错误
       throw new Error(`检查解析状态失败: ${result.message || '未知错误'}`)
     }
     
     const status = result.data?.status
     
     if (status === 'success') {
-      console.log('文件解析成功完成')
+      // 文件解析成功完成
       return result.data
     } else if (status === 'failed') {
-      console.error('文件解析失败:', result.data)
+      // 文件解析失败
       throw new Error(`文件解析失败: ${result.data?.detail || '未知错误'}`)
     } else if (status === 'processing') {
       const progress = result.data?.progress || 0
-      console.log(`文件解析中，进度: ${progress}%`)
+      // 文件解析中
       
       // 等待3秒后重试
       await new Promise(resolve => setTimeout(resolve, 3000))
     } else {
-      console.warn('未知的解析状态:', status)
+      // 未知的解析状态
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
   }
@@ -290,8 +290,8 @@ async function startFileConversion(uuid: string, apiKey: string, format: string,
     formula_mode: formulaMode
   }
   
-  console.log('开始文件转换，请求参数:', requestBody)
-  console.log('API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'undefined')
+  // 开始文件转换
+  // API Key
   
   const response = await fetch('https://v2.doc2x.noedgeai.com/api/v2/convert/parse', {
     method: 'POST',
@@ -302,19 +302,19 @@ async function startFileConversion(uuid: string, apiKey: string, format: string,
     body: JSON.stringify(requestBody)
   })
 
-  console.log('文件转换响应状态:', response.status)
+  // 文件转换响应状态
   
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('文件转换请求失败:', response.status, errorText)
+    // 文件转换请求失败
     throw new Error(`转换启动失败: ${response.status} - ${errorText}`)
   }
 
   const result = await response.json()
-  console.log('文件转换响应:', result)
+  // 文件转换响应
   
   if (result.code !== 'success') {
-    console.error('文件转换API返回错误:', result)
+    // 文件转换API返回错误
     throw new Error(`转换启动失败: ${result.message || '未知错误'}`)
   }
   
@@ -325,10 +325,10 @@ async function startFileConversion(uuid: string, apiKey: string, format: string,
 }
 
 async function pollConversionResult(convertUid: string, apiKey: string, maxAttempts = 60) {
-  console.log('开始轮询转换结果，UID:', convertUid)
+  // 开始轮询转换结果
   
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    console.log(`检查转换状态，第 ${attempt}/${maxAttempts} 次尝试`)
+    // 检查转换状态
     
     const response = await fetch(`https://v2.doc2x.noedgeai.com/api/v2/convert/parse/result?uid=${convertUid}`, {
       method: 'GET',
@@ -339,33 +339,33 @@ async function pollConversionResult(convertUid: string, apiKey: string, maxAttem
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('检查转换状态失败:', response.status, errorText)
+      // 检查转换状态失败
       throw new Error(`检查转换状态失败: ${response.status} - ${errorText}`)
     }
 
     const result = await response.json()
-    console.log('转换状态响应:', result)
+    // 转换状态响应
     
     if (result.code !== 'success') {
-      console.error('转换状态API返回错误:', result)
+      // 转换状态API返回错误
       throw new Error(`检查转换状态失败: ${result.message || '未知错误'}`)
     }
     
     const status = result.data?.status
     
     if (status === 'success') {
-      console.log('文件转换成功完成')
+      // 文件转换成功完成
       return result.data
     } else if (status === 'failed') {
-      console.error('文件转换失败:', result.data)
+      // 文件转换失败
       throw new Error(`文件转换失败: ${result.data?.detail || '未知错误'}`)
     } else if (status === 'processing') {
-      console.log('文件转换中...')
+      // 文件转换中
       
       // 等待3秒后重试
       await new Promise(resolve => setTimeout(resolve, 3000))
     } else {
-      console.warn('未知的转换状态:', status)
+      // 未知的转换状态
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
   }
@@ -399,7 +399,7 @@ async function extractAssetsFromZip(zipUrl: string, uuid: string): Promise<{ ass
     const zip = new AdmZip(zipPath)
     const entries = zip.getEntries()
     
-    console.log('压缩包中的文件:', entries.map(entry => entry.entryName))
+    // 压缩包中的文件
     
     // 解压所有文件并记录图片资源
     for (const entry of entries) {
@@ -420,7 +420,7 @@ async function extractAssetsFromZip(zipUrl: string, uuid: string): Promise<{ ass
         if (fileName.match(/\.(png|jpg|jpeg|gif|svg|webp)$/)) {
           const assetUrl = `/api/assets/${uuid}/${entry.entryName}`
           assetUrls.set(entry.entryName, assetUrl)
-          console.log('注册图片资源:', entry.entryName, '->', assetUrl)
+          // 注册图片资源
         }
       }
     }
@@ -428,21 +428,21 @@ async function extractAssetsFromZip(zipUrl: string, uuid: string): Promise<{ ass
     return { assetUrls, extractDir }
     
   } catch (error) {
-    console.error('解压资源文件时出错:', error)
+    // 解压资源文件时出错
     throw error
   } finally {
     // 清理临时压缩包
     try {
       await unlink(zipPath)
     } catch (cleanupError) {
-      console.warn('清理临时压缩包失败:', cleanupError)
+      // 清理临时压缩包失败
     }
   }
 }
 
 async function extractMarkdownFromZip(zipUrl: string, uuid: string): Promise<string> {
   try {
-    console.log('开始处理Markdown压缩包:', zipUrl)
+    // 开始处理Markdown压缩包
     
     // 解压所有资源文件
     const { assetUrls } = await extractAssetsFromZip(zipUrl, uuid)
@@ -461,11 +461,11 @@ async function extractMarkdownFromZip(zipUrl: string, uuid: string): Promise<str
       throw new Error('在压缩包中未找到Markdown文件')
     }
     
-    console.log('找到Markdown文件:', markdownEntry.entryName)
+    // 找到Markdown文件
     
     // 读取Markdown内容
     let content = markdownEntry.getData().toString('utf8')
-    console.log('Markdown内容长度:', content.length)
+    // Markdown内容长度
     
     // 替换图片路径为API URL
     for (const [originalPath, assetUrl] of assetUrls) {
@@ -486,19 +486,19 @@ async function extractMarkdownFromZip(zipUrl: string, uuid: string): Promise<str
       })
     }
     
-    console.log('图片路径替换完成，处理了', assetUrls.size, '个图片资源')
+    // 图片路径替换完成
     
     return content
     
   } catch (error) {
-    console.error('解压Markdown文件时出错:', error)
+    // 解压Markdown文件时出错
     throw error
   }
 }
 
 async function extractTexFromZip(zipUrl: string, uuid: string): Promise<string> {
   try {
-    console.log('开始处理TEX压缩包:', zipUrl)
+    // 开始处理TEX压缩包
     
     // 解压所有资源文件
     const { assetUrls } = await extractAssetsFromZip(zipUrl, uuid)
@@ -507,7 +507,7 @@ async function extractTexFromZip(zipUrl: string, uuid: string): Promise<string> 
     const zip = new AdmZip(Buffer.from(await (await fetch(zipUrl)).arrayBuffer()))
     const entries = zip.getEntries()
     
-    console.log('压缩包中的文件:', entries.map(entry => entry.entryName))
+    // 压缩包中的文件
     
     // 查找.tex文件（可能是output.tex或其他.tex文件）
     const texEntry = entries.find(entry => 
@@ -520,11 +520,11 @@ async function extractTexFromZip(zipUrl: string, uuid: string): Promise<string> 
       throw new Error('在压缩包中未找到TEX文件')
     }
     
-    console.log('找到TEX文件:', texEntry.entryName)
+    // 找到TEX文件
     
     // 读取TEX内容
     let content = texEntry.getData().toString('utf8')
-    console.log('TEX内容长度:', content.length)
+    // TEX内容长度
     
     // 替换图片路径为API URL
     for (const [originalPath, assetUrl] of assetUrls) {
@@ -557,12 +557,12 @@ async function extractTexFromZip(zipUrl: string, uuid: string): Promise<string> 
       })
     }
     
-    console.log('TEX图片路径替换完成，处理了', assetUrls.size, '个图片资源')
+    // TEX图片路径替换完成
     
     return content
     
   } catch (error) {
-    console.error('解压TEX文件时出错:', error)
+    // 解压TEX文件时出错
     throw error
   }
 }
@@ -586,20 +586,20 @@ async function cleanupExpiredAssets() {
         const stats = await stat(entryPath)
         if (now - stats.mtime.getTime() > maxAge) {
           await rm(entryPath, { recursive: true, force: true })
-          console.log('清理过期资源目录:', entry)
+          // 清理过期资源目录
         }
       } catch (error) {
-        console.warn('清理资源目录失败:', entry, error)
+        // 清理资源目录失败
       }
     }
   } catch (error) {
-    console.warn('清理过期资源时出错:', error)
+    // 清理过期资源时出错
   }
 }
 
 // 从ZIP文件中提取DOCX内容
 async function extractDocxFromZip(zipUrl: string, uuid: string): Promise<ArrayBuffer> {
-  console.log('开始从ZIP文件提取DOCX内容:', zipUrl)
+  // 开始从ZIP文件提取DOCX内容
   
   try {
     // 1. 下载ZIP文件
@@ -622,7 +622,7 @@ async function extractDocxFromZip(zipUrl: string, uuid: string): Promise<ArrayBu
       throw new Error('ZIP文件中未找到DOCX文件')
     }
     
-    console.log('找到DOCX文件:', docxEntry.entryName)
+    // 找到DOCX文件
     
     // 3. 提取DOCX文件内容
     const docxBuffer = docxEntry.getData()
@@ -630,11 +630,11 @@ async function extractDocxFromZip(zipUrl: string, uuid: string): Promise<ArrayBu
     // 4. 解压所有资源文件（图片等）
     await extractAssetsFromZip(zipUrl, uuid)
     
-    console.log('DOCX内容提取完成')
+    // DOCX内容提取完成
     return docxBuffer.buffer.slice(docxBuffer.byteOffset, docxBuffer.byteOffset + docxBuffer.byteLength)
     
   } catch (error) {
-    console.error('提取DOCX内容失败:', error)
+    // 提取DOCX内容失败
     throw new Error(`提取DOCX内容失败: ${error instanceof Error ? error.message : '未知错误'}`)
   }
 }
@@ -642,6 +642,6 @@ async function extractDocxFromZip(zipUrl: string, uuid: string): Promise<ArrayBu
 // 在每次处理请求时执行清理（异步，不阻塞主流程）
 setImmediate(() => {
   cleanupExpiredAssets().catch(error => {
-    console.warn('后台清理任务失败:', error)
+    // 后台清理任务失败
   })
 })

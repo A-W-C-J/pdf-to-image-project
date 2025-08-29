@@ -21,7 +21,7 @@ export async function GET() {
       .rpc('get_user_quota', { p_user_id: user.id })
 
     if (quotaError) {
-      console.error('获取用户额度失败:', quotaError)
+      // 获取用户额度失败
       return NextResponse.json(
         { error: '获取用户额度失败' },
         { status: 500 }
@@ -41,7 +41,7 @@ export async function GET() {
       remainingQuota: quota.remaining_quota
     })
   } catch (error) {
-    console.error('获取用户额度异常:', error)
+    // 获取用户额度异常
     return NextResponse.json(
       { error: '服务器内部错误' },
       { status: 500 }
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (consumeError) {
-      console.error('消耗用户额度失败:', consumeError)
+      // 消耗用户额度失败
       return NextResponse.json(
         { error: '消耗用户额度失败' },
         { status: 500 }
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       remainingQuota: quota.remaining_quota
     })
   } catch (error) {
-    console.error('消耗用户额度异常:', error)
+    // 消耗用户额度异常
     return NextResponse.json(
       { error: '服务器内部错误' },
       { status: 500 }

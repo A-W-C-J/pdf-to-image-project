@@ -61,7 +61,7 @@ export default function RelatedArticles({ currentSlug, currentTags = [], maxArti
           .order('created_at', { ascending: false })
 
         if (error) {
-          console.error('Error fetching related articles:', error)
+          // Error fetching related articles
           return
         }
 
@@ -108,7 +108,7 @@ export default function RelatedArticles({ currentSlug, currentTags = [], maxArti
 
         setRelatedPosts(sortedPosts)
       } catch (error) {
-        console.error('Error in fetchRelatedArticles:', error)
+        // Error in fetchRelatedArticles
       } finally {
         setLoading(false)
       }

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       url: session.url 
     })
   } catch (error) {
-    console.error('创建支付会话失败:', error)
+    // 创建支付会话失败
     return NextResponse.json(
       { error: '创建支付会话失败' },
       { status: 500 }

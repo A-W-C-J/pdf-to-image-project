@@ -33,13 +33,13 @@ async function getBlogPosts(): Promise<BlogPost[]> {
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("Error fetching blog posts for sitemap:", error)
+      // Error fetching blog posts for sitemap
       return []
     }
 
     return data || []
   } catch (error) {
-    console.error("Error in getBlogPosts:", error)
+    // Error in getBlogPosts
     return []
   }
 }
@@ -50,8 +50,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const blogPostEntries = blogPosts.map((post) => ({
     url: `https://www.pdf2img.top/blog/${post.slug}`,
     lastModified: new Date(post.updated_at || post.created_at),
-    changeFrequency: "monthly" as const,
-    priority: 0.8,
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
     alternates: {
       languages: {
         en: `https://www.pdf2img.top/en/blog/${post.slug}`,
@@ -65,7 +65,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: "https://www.pdf2img.top/blog",
       lastModified: new Date(),
       changeFrequency: "daily",
-      priority: 0.9,
+      priority: 0.8,
       alternates: {
         languages: {
           en: "https://www.pdf2img.top/en/blog",

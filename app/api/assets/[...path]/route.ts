@@ -57,7 +57,7 @@ export async function GET(request: NextRequest, { params }: { params: { path: st
       }
     })
   } catch (error) {
-    console.error('读取资源文件失败:', error)
+    // 读取资源文件失败
     return new Response('服务器内部错误', { status: 500 })
   }
 }

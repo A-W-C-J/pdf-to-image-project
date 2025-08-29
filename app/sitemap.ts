@@ -1,45 +1,29 @@
 import type { MetadataRoute } from "next"
 
+// 这个文件现在作为sitemap index，引用其他sitemap文件
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://www.pdf2img.top"
   const currentDate = new Date()
 
+  // 返回sitemap index格式，引用其他sitemap文件
   return [
     {
-      url: baseUrl,
+      url: `${baseUrl}/main-sitemap.xml`,
       lastModified: currentDate,
       changeFrequency: "daily",
       priority: 1.0,
-      alternates: {
-        languages: {
-          en: `${baseUrl}/en`,
-          zh: `${baseUrl}/zh`,
-        },
-      },
     },
     {
-      url: `${baseUrl}/about`,
-      lastModified: currentDate,
-      changeFrequency: "monthly",
-      priority: 0.7,
-      alternates: {
-        languages: {
-          en: `${baseUrl}/en/about`,
-          zh: `${baseUrl}/zh/about`,
-        },
-      },
-    },
-    {
-      url: `${baseUrl}/blog`,
+      url: `${baseUrl}/blog/sitemap.xml`,
       lastModified: currentDate,
       changeFrequency: "daily",
       priority: 0.9,
-      alternates: {
-        languages: {
-          en: `${baseUrl}/en/blog`,
-          zh: `${baseUrl}/zh/blog`,
-        },
-      },
+    },
+    {
+      url: `${baseUrl}/blog/tag/sitemap.xml`,
+      lastModified: currentDate,
+      changeFrequency: "weekly",
+      priority: 0.6,
     },
   ]
 }

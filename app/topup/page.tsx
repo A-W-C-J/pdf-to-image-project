@@ -55,7 +55,7 @@ export default function TopupPage() {
         .rpc('get_user_quota', { p_user_id: user.id })
       
       if (error) {
-        console.error('Failed to fetch user quota:', error)
+        // Failed to fetch user quota
         setUserQuota(0)
         return
       }
@@ -63,7 +63,7 @@ export default function TopupPage() {
       const remainingQuota = data && data.length > 0 ? data[0].remaining_quota : 0
       setUserQuota(remainingQuota)
     } catch (error) {
-      console.error('Failed to fetch user quota:', error)
+      // Failed to fetch user quota
       setUserQuota(0)
     } finally {
       setIsLoadingQuota(false)
@@ -83,7 +83,7 @@ export default function TopupPage() {
       
       setProducts(data.products || [])
     } catch (error) {
-      console.error('获取产品信息失败:', error)
+      // 获取产品信息失败
       toast.error('获取产品信息失败')
     } finally {
       setIsLoadingProducts(false)
@@ -124,7 +124,7 @@ export default function TopupPage() {
         throw new Error(t('noPaymentUrl'))
       }
     } catch (error) {
-      console.error('支付处理失败:', error)
+      // 支付处理失败
       toast.error(error instanceof Error ? error.message : t('paymentProcessingFailed'))
     } finally {
       setIsProcessingPayment(false)

@@ -155,12 +155,11 @@ export class ErrorHandler {
    */
   private logError(errorInfo: ErrorInfo): void {
     console.group('🚨 Error Handler')
-    console.error('Message:', errorInfo.message)
-    console.error('Code:', errorInfo.code)
-    console.error('Timestamp:', errorInfo.timestamp.toISOString())
-    if (errorInfo.details) {
-      console.error('Details:', errorInfo.details)
-    }
+    // Error details logged
+    // Message: errorInfo.message
+    // Code: errorInfo.code
+    // Timestamp: errorInfo.timestamp.toISOString()
+    // Details: errorInfo.details (if available)
     console.groupEnd()
   }
 
@@ -187,9 +186,9 @@ export class ErrorHandler {
       //   headers: { 'Content-Type': 'application/json' },
       //   body: JSON.stringify(errorInfo)
       // })
-      console.log('Error reported:', errorInfo)
+      // Error reported
     } catch (reportError) {
-      console.error('Failed to report error:', reportError)
+      // Failed to report error
     }
   }
 

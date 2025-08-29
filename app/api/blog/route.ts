@@ -31,7 +31,7 @@ export async function GET() {
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("Error fetching blog posts:", error)
+      // Error fetching blog posts
       return new Response(
         JSON.stringify({ error: "获取博客文章失败", details: error.message }),
         {
@@ -46,7 +46,7 @@ export async function GET() {
       headers: { "Content-Type": "application/json" }
     })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    // Unexpected error
     return new Response(
       JSON.stringify({ error: "服务器内部错误" }),
       {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error("Error creating blog post:", error)
+      // Error creating blog post
       return new Response(
         JSON.stringify({ error: "创建博客文章失败", details: error.message }),
         {
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" }
     })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    // Unexpected error
     return new Response(
       JSON.stringify({ error: "服务器内部错误" }),
       {
@@ -158,7 +158,7 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error("Error updating blog post:", error)
+      // Error updating blog post
       return new Response(
         JSON.stringify({ error: "更新博客文章失败", details: error.message }),
         {
@@ -173,7 +173,7 @@ export async function PUT(request: NextRequest) {
       headers: { "Content-Type": "application/json" }
     })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    // Unexpected error
     return new Response(
       JSON.stringify({ error: "服务器内部错误" }),
       {
@@ -207,7 +207,7 @@ export async function DELETE(request: NextRequest) {
       .eq("id", id)
 
     if (error) {
-      console.error("Error deleting blog post:", error)
+      // Error deleting blog post
       return new Response(
         JSON.stringify({ error: "删除博客文章失败", details: error.message }),
         {
@@ -222,7 +222,7 @@ export async function DELETE(request: NextRequest) {
       headers: { "Content-Type": "application/json" }
     })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    // Unexpected error
     return new Response(
       JSON.stringify({ error: "服务器内部错误" }),
       {

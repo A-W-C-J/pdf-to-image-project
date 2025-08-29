@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     let pdfPageCount = 1
     if (pageCountParam && !isNaN(parseInt(pageCountParam))) {
       pdfPageCount = parseInt(pageCountParam)
-      console.log('使用客户端传递的页数:', pdfPageCount)
+      // 使用客户端传递的页数
     } else {
       // 如果客户端没有传递页数，使用文件大小估算作为备用方案
       const fileSizeKB = file.size / 1024
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       } else {
         pdfPageCount = Math.max(1, Math.round(fileSizeKB / 120))
       }
-      console.log('使用文件大小估算页数:', pdfPageCount)
+      // 使用文件大小估算页数
     }
 
     const bytes = await file.arrayBuffer()
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       .rpc('get_user_quota', { p_user_id: user.id })
     
     if (quotaError) {
-      console.error('获取用户额度失败:', quotaError)
+      // 获取用户额度失败
       return new Response(JSON.stringify({ 
         error: '获取用户额度失败',
         code: 'QUOTA_CHECK_FAILED'
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
           })
         
         if (consumeError) {
-          console.error('扣除用户额度失败:', consumeError)
+          // 扣除用户额度失败
           // 注意：这里转换已经成功，但额度扣除失败
           // 可以选择记录日志但仍然返回成功结果
         }
@@ -153,11 +153,11 @@ export async function POST(request: NextRequest) {
       try {
         await unlink(tempFilePath)
       } catch (error) {
-        console.error('清理临时文件失败:', error)
+        // 清理临时文件失败
       }
     }
   } catch (error) {
-    console.error('PDF转Word处理错误:', error)
+    // PDF转Word处理错误
     return new Response(JSON.stringify({ error: '服务器内部错误' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -218,7 +218,7 @@ async function convertPdfToWord(filePath: string, apiKey: string) {
       }
     }
   } catch (error) {
-    console.error('PDF转Word失败:', error)
+    // PDF转Word失败
     return {
       success: false,
       message: error instanceof Error ? error.message : '转换失败'
@@ -228,8 +228,6 @@ async function convertPdfToWord(filePath: string, apiKey: string) {
 
 // 获取预上传URL
 async function getPreuploadUrl(apiKey: string) {
-  console.log('开始获取预上传URL，API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'undefined')
-  
   const response = await fetch('https://v2.doc2x.noedgeai.com/api/v2/parse/preupload', {
     method: 'POST',
     headers: {
@@ -237,20 +235,15 @@ async function getPreuploadUrl(apiKey: string) {
       'Content-Type': 'application/json'
     }
   })
-
-  console.log('预上传URL响应状态:', response.status)
   
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('预上传URL请求失败:', response.status, errorText)
     throw new Error(`获取预上传URL失败: ${response.status} - ${errorText}`)
   }
 
   const result = await response.json()
-  console.log('预上传URL响应:', result)
   
   if (result.code !== 'success') {
-    console.error('预上传URL API返回错误:', result)
     throw new Error(`获取预上传URL失败: ${result.message || '未知错误'}`)
   }
   
@@ -277,10 +270,7 @@ async function uploadFileToUrl(filePath: string, uploadUrl: string) {
 
 // 等待文件解析完成
 async function waitForParseComplete(uuid: string, apiKey: string, maxAttempts = 60) {
-  console.log(`开始等待文件解析完成，UUID: ${uuid}`)
-  
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    console.log(`解析状态检查，尝试 ${attempt + 1}/${maxAttempts}`)
     
     const response = await fetch(`https://v2.doc2x.noedgeai.com/api/v2/parse/status?uid=${uuid}`, {
       headers: {
@@ -289,35 +279,27 @@ async function waitForParseComplete(uuid: string, apiKey: string, maxAttempts = 
     })
 
     if (!response.ok) {
-      console.error(`解析状态查询失败: ${response.status}`)
       throw new Error(`状态查询失败: ${response.status}`)
     }
 
     const result = await response.json()
-    console.log(`解析状态响应:`, result)
     
     if (result.code !== 'success') {
-      console.error('解析状态API返回错误:', result)
       throw new Error(`状态查询失败: ${result.message || '未知错误'}`)
     }
     
     const status = result.data?.status
-    console.log(`当前解析状态: ${status}`)
     
     if (status === 'success') {
-      console.log('文件解析完成')
       return result.data
     } else if (status === 'failed') {
-      console.error('文件解析失败')
       throw new Error('文件解析失败')
     }
     
     // 等待2秒后重试
-    console.log('等待2秒后重试...')
     await new Promise(resolve => setTimeout(resolve, 2000))
   }
   
-  console.error('文件解析超时')
   throw new Error('文件解析超时')
 }
 
@@ -329,9 +311,6 @@ async function startFileConversion(uuid: string, apiKey: string) {
     formula_mode: 'normal'
   }
   
-  console.log('开始文件转换，请求参数:', requestBody)
-  console.log('API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'undefined')
-  
   const response = await fetch('https://v2.doc2x.noedgeai.com/api/v2/convert/parse', {
     method: 'POST',
     headers: {
@@ -340,20 +319,15 @@ async function startFileConversion(uuid: string, apiKey: string) {
     },
     body: JSON.stringify(requestBody)
   })
-
-  console.log('文件转换响应状态:', response.status)
   
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('文件转换请求失败:', response.status, errorText)
     throw new Error(`转换启动失败: ${response.status} - ${errorText}`)
   }
 
   const result = await response.json()
-  console.log('文件转换响应:', result)
   
   if (result.code !== 'success') {
-    console.error('文件转换API返回错误:', result)
     throw new Error(`转换启动失败: ${result.message || '未知错误'}`)
   }
   

@@ -7,8 +7,6 @@ Disallow: /api/
 
 # Sitemap location
 Sitemap: https://www.pdf2img.top/sitemap.xml
-Sitemap: https://www.pdf2img.top/blog/sitemap.xml
-Sitemap: https://www.pdf2img.top/blog/tag/sitemap.xml
 
 # Crawl-delay for better server performance
 Crawl-delay: 1

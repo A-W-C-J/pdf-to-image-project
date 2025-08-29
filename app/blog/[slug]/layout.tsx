@@ -103,7 +103,7 @@ export async function generateMetadata(
       },
     }
   } catch (error) {
-    console.error('Error generating metadata:', error)
+    // Error generating metadata
     return {
       title: 'PDF Tech Blog',
       description: 'Technical blog about PDF processing, conversion, and best practices.',

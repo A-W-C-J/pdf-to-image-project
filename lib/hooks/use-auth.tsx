@@ -25,7 +25,7 @@ export function useAuth() {
       const { data: { session }, error } = await supabase.auth.getSession()
       
       if (error) {
-        console.error('Error getting session:', error)
+        // Error getting session
       }
       
       setAuthState({
@@ -40,7 +40,7 @@ export function useAuth() {
     // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email)
+        // Auth state changed
         
         setAuthState({
           user: session?.user ?? null,
@@ -60,11 +60,11 @@ export function useAuth() {
     try {
       const { error } = await supabase.auth.signOut()
       if (error) {
-        console.error('Error signing out:', error)
+        // Error signing out
         throw error
       }
     } catch (error) {
-      console.error('Sign out error:', error)
+      // Sign out error
       throw error
     }
   }

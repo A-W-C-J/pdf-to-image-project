@@ -32,7 +32,7 @@ export function AdSense({
         window.adsbygoogle.push({})
       }
     } catch (error) {
-      console.error('AdSense error:', error)
+      // AdSense error
     }
   }, [])
 

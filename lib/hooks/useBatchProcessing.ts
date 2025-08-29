@@ -260,7 +260,7 @@ export function useBatchProcessing(config: UseBatchProcessingConfig = {}): UseBa
           ))
           
         } catch (error) {
-          console.error(`文件 ${batchFile.file.name} 处理失败:`, error)
+          // 文件处理失败
           
           // 更新文件状态为错误
           setBatchFiles((prev: BatchFile[]) => prev.map(f => 
@@ -479,7 +479,7 @@ export function useBatchProcessing(config: UseBatchProcessingConfig = {}): UseBa
       
       setTimeout(() => URL.revokeObjectURL(url), 100)
     } catch (error) {
-      console.error('下载失败:', error)
+      // 下载失败
     }
   }, [])
   

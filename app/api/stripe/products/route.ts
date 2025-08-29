@@ -48,7 +48,7 @@ export async function GET() {
       products: productsWithPrices
     })
   } catch (error) {
-    console.error('获取Stripe产品信息失败:', error)
+    // 获取Stripe产品信息失败
     return NextResponse.json(
       { error: '获取产品信息失败' },
       { status: 500 }

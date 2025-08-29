@@ -55,7 +55,7 @@ export default function BlogPage() {
           .order("created_at", { ascending: false })
 
         if (supabaseError) {
-          console.error("Error loading articles:", supabaseError)
+          // Error loading articles
           setError(`加载文章失败: ${supabaseError.message || '未知错误'}`)
           setAllPosts([])
           setFilteredPosts([])
@@ -82,9 +82,9 @@ export default function BlogPage() {
 
         setAllPosts(formattedPosts)
         setFilteredPosts(formattedPosts)
-        console.log('博客数据加载成功:', formattedPosts.length, '篇文章')
+        // 博客数据加载成功
       } catch (error) {
-        console.error("Error loading articles:", error)
+        // Error loading articles
         setError('加载文章时发生错误')
         setAllPosts([])
         setFilteredPosts([])

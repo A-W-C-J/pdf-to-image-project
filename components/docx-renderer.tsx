@@ -33,10 +33,10 @@ export function DocxRenderer({ content, className = '' }: DocxRendererProps) {
         
         // 如果有警告信息，可以在控制台输出
         if (result.messages.length > 0) {
-          console.warn('DOCX conversion warnings:', result.messages)
+          // DOCX conversion warnings
         }
       } catch (err) {
-        console.error('Error converting DOCX:', err)
+        // Error converting DOCX
         setError('无法解析DOCX文档')
       } finally {
         setIsLoading(false)

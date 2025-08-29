@@ -56,7 +56,7 @@ export function LatexRenderer({ content, className = '' }: LatexRendererProps) {
           containerRef.current?.appendChild(lineDiv)
         })
       } catch (error) {
-        console.error('LaTeX rendering error:', error)
+        // LaTeX rendering error
         if (containerRef.current) {
           containerRef.current.innerHTML = `<pre class="text-gray-600 font-mono text-sm whitespace-pre-wrap">${content}</pre>`
         }

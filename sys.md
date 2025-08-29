@@ -151,7 +151,7 @@ convertBtn.addEventListener('click', async () => {
         downloadAllBtn.disabled = false; // 启用下载按钮
 
     } catch (error) {
-        console.error('Error during PDF processing:', error);
+        // Error during PDF processing
         statusDiv.textContent = `出错: ${error.message}`;
     }
 });

@@ -21,7 +21,7 @@ export default async function TagPage({ params }: { params: { tag: string } }) {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching posts:', error)
+    // Error fetching posts
     notFound()
   }
 

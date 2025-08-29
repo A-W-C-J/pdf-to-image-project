@@ -66,9 +66,9 @@ export default function BlogAdminPage() {
 
       const { data } = await response.json()
       setPosts(data || [])
-      console.log('博客数据加载成功:', data?.length || 0, '篇文章')
+      // 博客数据加载成功
     } catch (error) {
-      console.error("Error loading articles:", error)
+      // Error loading articles
       setError(error instanceof Error ? error.message : "加载文章失败")
     } finally {
       setLoading(false)
@@ -175,7 +175,7 @@ export default function BlogAdminPage() {
       setFormData({})
       setTimeout(() => setSuccess(""), 3000)
     } catch (error: unknown) {
-      console.error("Error saving article:", error)
+      // Error saving article
       setError(error instanceof Error ? error.message : "保存失败")
     } finally {
       setLoading(false)
@@ -210,7 +210,7 @@ export default function BlogAdminPage() {
       setSuccess("文章已删除")
       setTimeout(() => setSuccess(""), 3000)
     } catch (error: unknown) {
-      console.error("Error deleting article:", error)
+      // Error deleting article
       setError(error instanceof Error ? error.message : "删除失败")
     } finally {
       setLoading(false)
@@ -366,13 +366,13 @@ export default function BlogAdminPage() {
                   throw new Error(data.message)
               }
             } catch (parseError) {
-              console.warn("解析流数据失败:", parseError)
+              // 解析流数据失败
             }
           }
         }
       }
     } catch (error: unknown) {
-      console.error("AI generation error:", error)
+      // AI generation error
       setError(error instanceof Error ? error.message : "AI生成失败，请稍后重试")
       setGenerationStatus("")
       setStreamingContent("")

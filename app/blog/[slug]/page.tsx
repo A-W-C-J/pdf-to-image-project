@@ -88,7 +88,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   // 解码URL参数
   const resolvedParams = await params
   const decodedSlug = decodeURIComponent(resolvedParams.slug)
-  console.log('查找文章 slug:', decodedSlug)
+  // 查找文章 slug
 
   const { data: post, error } = await supabase
     .from('blog_posts')
@@ -101,7 +101,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       // No rows returned
       notFound()
     } else {
-      console.error('Error fetching blog post:', error)
+      // Error fetching blog post
       notFound()
     }
   }

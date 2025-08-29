@@ -1989,16 +1989,7 @@ export default function PDFConverter() {
                 {language === "zh" ? "关于我们" : "About Us"}
               </Button>
             </Link>
-            <Link href="/topup" onClick={() => { handleNavigationClick('/topup'); setIsMobileMenuOpen(false); }}>
-              <Button variant="outline" size="sm" className="w-full flex items-center gap-2 justify-start h-10 transition-all duration-200 hover:bg-primary/10 hover:border-primary/50 active:scale-95" disabled={navigationLoading === '/topup'}>
-                {navigationLoading === '/topup' ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                ) : (
-                  <CreditCard className="h-4 w-4" />
-                )}
-                {language === "zh" ? "充值中心" : "Topup"}
-              </Button>
-            </Link>
+
             <div className="flex gap-2 pt-3 border-t">
               <div className="h-10 flex items-center">
                 <ThemeSwitcher language={language} />

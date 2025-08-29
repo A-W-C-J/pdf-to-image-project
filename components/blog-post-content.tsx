@@ -8,10 +8,19 @@ import ReactMarkdown from 'react-markdown'
 import RelatedArticles from '@/components/related-articles'
 import Breadcrumb from '@/components/breadcrumb'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import remarkBreaks from 'remark-breaks'
+import remarkEmoji from 'remark-emoji'
+import remarkToc from 'remark-toc'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
+import rehypeKatex from 'rehype-katex'
+import rehypeSlug from 'rehype-slug'
+import rehypeAutolinkHeadings from 'rehype-autolink-headings'
+import 'katex/dist/katex.min.css'
 import { useLanguage } from '@/lib/i18n'
 import { InArticleAd } from '@/components/adsense'
+import styles from './blog-post-content.module.styl'
 
 interface BlogPost {
   id: string
@@ -108,63 +117,47 @@ export default function BlogPostContent({ post }: BlogPostContentProps) {
 
             <CardContent>
               {/* 文章正文 */}
-              <div className="prose prose-lg dark:prose-invert max-w-none">
+              <div className={styles.markdownContent}>
                 <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight, rehypeRaw]}
+                  remarkPlugins={[
+                    remarkGfm,
+                    remarkMath,
+                    remarkBreaks,
+                    remarkEmoji,
+                    [remarkToc, { heading: '目录|table of contents|toc', maxDepth: 3 }]
+                  ]}
+                  rehypePlugins={[
+                    rehypeHighlight,
+                    rehypeRaw,
+                    rehypeKatex,
+                    rehypeSlug,
+                    [rehypeAutolinkHeadings, { behavior: 'wrap' }]
+                  ]}
                   components={{
-                    // 代码块样式
-                    code: ({ inline, className, children, ...props }: React.HTMLAttributes<HTMLElement> & {
-                       inline?: boolean
-                     }) => {
-                      if (inline) {
-                        return (
-                          <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
-                            {children}
-                          </code>
-                        )
-                      }
-                      return (
-                        <code className={className} {...props}>
-                          {children}
-                        </code>
-                      )
-                    },
-                    // 链接样式
+                    // 链接样式 - 保留外部链接图标
                     a: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
                       const isExternal = href?.startsWith('http')
                       return (
                         <a
                           href={href}
-                          className="text-primary hover:text-primary/80 underline underline-offset-4 transition-colors"
                           target={isExternal ? '_blank' : undefined}
                           rel={isExternal ? 'nofollow noopener noreferrer' : 'nofollow'}
                           {...props}
                         >
                           {children}
                           {isExternal && (
-                            <span className="ml-1 text-xs">↗</span>
+                            <span className="ml-1 text-xs opacity-70">↗</span>
                           )}
                         </a>
                       )
                     },
-                    // 表格样式
+                    // 表格容器 - 保持响应式滚动
                     table: ({ children, ...props }) => (
-                      <div className="overflow-x-auto my-6">
-                        <table className="min-w-full border-collapse border border-border rounded-lg" {...props}>
+                      <div className="overflow-x-auto">
+                        <table {...props}>
                           {children}
                         </table>
                       </div>
-                    ),
-                    th: ({ children, ...props }) => (
-                      <th className="border border-border bg-muted px-4 py-3 text-left font-semibold" {...props}>
-                        {children}
-                      </th>
-                    ),
-                    td: ({ children, ...props }) => (
-                      <td className="border border-border px-4 py-3" {...props}>
-                        {children}
-                      </td>
                     ),
                   }}
                 >

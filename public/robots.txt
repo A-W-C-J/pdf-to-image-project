@@ -1,12 +1,22 @@
 User-agent: *
 Allow: /
 
+# Allow Google AdSense crawlers
+User-agent: Mediapartners-Google
+Allow: /
+
+User-agent: AdsBot-Google
+Allow: /
+
+User-agent: AdsBot-Google-Mobile
+Allow: /
+
 # Disallow admin pages
 Disallow: /blog/admin
 Disallow: /api/
 
 # Sitemap location
-Sitemap: https://www.pdf2img.top/sitemap.xml
+Sitemap: https://www.pdf2img.top/sitemap-index.xml
 
 # Crawl-delay for better server performance
 Crawl-delay: 1
